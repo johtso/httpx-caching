@@ -44,28 +44,10 @@ class CacheController(object):
         self.cacheable_status_codes = status_codes or (200, 203, 300, 301, 308)
 
     @classmethod
-    def _urlnorm(cls, uri):
-        """Normalize the URL to create a safe key for the cache"""
-        (scheme, authority, path, query, fragment) = parse_uri(uri)
-        if not scheme or not authority:
-            raise Exception("Only absolute URIs are allowed. uri = %s" % uri)
-
-        scheme = scheme.lower()
-        authority = authority.lower()
-
-        if not path:
-            path = "/"
-
-        # Could do syntax based normalization of the URI before
-        # computing the digest. See Section 6.2.2 of Std 66.
-        request_uri = query and "?".join([path, query]) or path
-        defrag_uri = scheme + "://" + authority + request_uri
-
-        return defrag_uri
-
-    @classmethod
     def cache_url(cls, uri):
-        return cls._urlnorm(uri)
+        if not uri.scheme or not uri.authority:
+            raise Exception("Only absolute URIs are allowed. uri = %s" % uri)
+        return str(uri)
 
     def parse_cache_control(self, headers):
         known_directives = {
