@@ -6,7 +6,6 @@
 The httplib2 algorithms ported for use with requests.
 """
 import logging
-import re
 import calendar
 import time
 from email.utils import parsedate_tz
@@ -17,18 +16,7 @@ from .serialize import Serializer
 
 logger = logging.getLogger(__name__)
 
-URI = re.compile(r"^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?")
-
 PERMANENT_REDIRECT_STATUSES = (301, 308)
-
-
-def parse_uri(uri):
-    """Parses a URI using the regex given in Appendix B of RFC 3986.
-
-        (scheme, authority, path, query, fragment) = parse_uri(uri)
-    """
-    groups = URI.match(uri).groups()
-    return (groups[1], groups[3], groups[4], groups[6], groups[8])
 
 
 class CacheController(object):
@@ -128,7 +116,7 @@ class CacheController(object):
             return False
 
         # Check whether it can be deserialized
-        resp = self.serializer.loads(request, cache_data)
+        resp = self.serializer.loads(request_headers, cache_data)
         if not resp:
             logger.warning("Cache entry deserialization failed, entry ignored")
             return False
@@ -216,7 +204,7 @@ class CacheController(object):
 
     def conditional_headers(self, request_url):
         cache_url = self.cache_url(request_url)
-        resp = self.serializer.loads(request, self.cache.get(cache_url))
+        resp = self.serializer.loads(request_headers, self.cache.get(cache_url))
         new_headers = {}
 
         if resp:
@@ -235,7 +223,9 @@ class CacheController(object):
             request_url,
             request_headers,
             response_headers,
-            response_status,
+            response_status_code,
+            response_reason_phrase,
+            response_http_version,
             response_body,
             ):
         """
@@ -243,7 +233,7 @@ class CacheController(object):
         """
         # From httplib2: Don't cache 206's since we aren't going to
         #                handle byte range requests
-        if response_status not in self.cacheable_status_codes:
+        if response_status_code not in self.cacheable_status_codes:
             logger.debug(
                 "Status code %s not in %s", response.status, self.cacheable_status_codes
             )
@@ -293,15 +283,12 @@ class CacheController(object):
         # If we've been given an etag, then keep the response
         if self.cache_etags and "etag" in response_headers:
             logger.debug("Caching due to etag")
-            self.cache.set(
-                cache_url, self.serializer.dumps(request, response, response_body)
-            )
 
         # Add to the cache any permanent redirects. We do this before looking
         # that the Date headers.
-        elif int(response_status) in PERMANENT_REDIRECT_STATUSES:
+        elif int(response_status_code) in PERMANENT_REDIRECT_STATUSES:
             logger.debug("Caching permanent redirect")
-            self.cache.set(cache_url, self.serializer.dumps(request, response, b''))
+            response_body = b''
 
         # Add to the cache if the response headers demand it. If there
         # is no date header then we can't do anything about expiring
@@ -310,20 +297,29 @@ class CacheController(object):
             # cache when there is a max-age > 0
             if "max-age" in cc and cc["max-age"] > 0:
                 logger.debug("Caching b/c date exists and max-age > 0")
-                self.cache.set(
-                    cache_url, self.serializer.dumps(request, response, response_body)
-                )
 
             # If the request can expire, it means we should cache it
             # in the meantime.
             elif "expires" in response_headers:
                 if response_headers["expires"]:
                     logger.debug("Caching b/c of expires header")
-                    self.cache.set(
-                        cache_url, self.serializer.dumps(request, response, response_body)
-                    )
+            else:
+                return
+        else:
+            return
 
-    def update_cached_response(self, request_url, response_headers):
+        self.cache.set(
+            cache_url, self.serializer.dumps(
+                request_headers,
+                response_headers,
+                response_status_code,
+                response_http_version,
+                response_reason_phrase,
+                response_body
+            )
+        )
+
+    def update_cached_response(self, request_url, request_headers, response_headers):
         """On a 304 we will get a new set of headers that we want to
         update our cached value with, assuming we have one.
 
@@ -332,11 +328,19 @@ class CacheController(object):
         """
         cache_url = self.cache_url(request_url)
 
-        cached_response = self.serializer.loads(request, self.cache.get(cache_url))
+        cached_response = self.serializer.loads(request_headers, self.cache.get(cache_url))
 
         if not cached_response:
             # we didn't have a cached response
-            return response
+            return
+        else:
+            (
+                cached_http_version,
+                cached_status_code,
+                cached_reason_phrase,
+                cached_headers,
+                cached_body
+            ) = cached_response
 
         # Lets update our headers with the headers from the new request:
         # http://tools.ietf.org/html/draft-ietf-httpbis-p4-conditional-26#section-4.1
@@ -347,7 +351,7 @@ class CacheController(object):
         # typical assumptions.
         excluded_headers = ["content-length"]
 
-        cached_response.headers.update(
+        cached_headers.update(
             dict(
                 (k, v)
                 for k, v in response_headers.items()
@@ -356,10 +360,26 @@ class CacheController(object):
         )
 
         # we want a 200 b/c we have content via the cache
-        cached_response.status = 200
+        cached_status_code = 200
 
         # update our cache
-        body = cached_response.read(decode_content=False)
-        self.cache.set(cache_url, self.serializer.dumps(request, cached_response, body))
+        body = cached_body.read(decode_content=False)
+        self.cache.set(
+            cache_url,
+            self.serializer.dumps(
+                request_headers,
+                cached_headers,
+                cached_status_code,
+                cached_http_version,
+                cached_reason_phrase,
+                body
+            )
+        )
 
-        return cached_response
+        return (
+            cached_http_version,
+            cached_status_code,
+            cached_reason_phrase,
+            cached_headers,
+            cached_body
+        )
