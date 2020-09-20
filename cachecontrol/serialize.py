@@ -5,9 +5,7 @@
 import io
 
 import msgpack
-from httpx import Headers
-
-from .compat import HTTPResponse, text_type
+from httpx import Headers, Response
 
 
 class Serializer(object):
@@ -80,8 +78,7 @@ class Serializer(object):
             return
 
     def prepare_response(self, request, cached):
-        """Verify our vary headers match and construct a real urllib3
-        HTTPResponse object.
+        """Verify our vary headers match and construct a real Response object.
         """
         # Special case the '*' Vary value as it means we cannot actually
         # determine if the cached response is suitable for this request.
@@ -115,7 +112,7 @@ class Serializer(object):
             #     TypeError: 'str' does not support the buffer interface
             body = io.BytesIO(body_raw.encode("utf8"))
 
-        return HTTPResponse(body=body, preload_content=False, **cached["response"])
+        return Response(body=body, preload_content=False, **cached["response"])
 
     def _loads_v0(self, request, data):
         try:

@@ -2,15 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import pytest
+from urllib.parse import urljoin
 
+import pytest
 from mock import Mock, patch
 
 from httpx import Client
 
 from cachecontrol import CacheControlTransport
 from cachecontrol.cache import DictCache
-from cachecontrol.compat import urljoin
 
 
 class NullSerializer(object):
