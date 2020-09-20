@@ -6,9 +6,9 @@ import pytest
 
 from mock import Mock, patch
 
-import requests
+from httpx import Client
 
-from cachecontrol import CacheControl
+from cachecontrol import CacheControlTransport
 from cachecontrol.cache import DictCache
 from cachecontrol.compat import urljoin
 
@@ -32,19 +32,22 @@ class TestETag(object):
     """
 
     @pytest.fixture()
-    def sess(self, url):
+    def client(self, url):
         self.etag_url = urljoin(url, "/etag")
         self.update_etag_url = urljoin(url, "/update_etag")
         self.cache = DictCache()
-        sess = CacheControl(
-            requests.Session(), cache=self.cache, serializer=NullSerializer()
+        client = Client(
+            transport=CacheControlTransport(
+                cache=self.cache,
+                serializer=NullSerializer()
+            )
         )
-        yield sess
+        yield client
 
-        # closing session object
-        sess.close()
+        # closing cliention object
+        client.close()
 
-    def test_etags_get_example(self, sess, server):
+    def test_etags_get_example(self, client, server):
         """RFC 2616 14.26
 
         The If-None-Match request-header field is used with a method to make
@@ -70,20 +73,20 @@ class TestETag(object):
         clients last version, and if not, it can return a 304 to indicate
         the client can use it's current representation.
         """
-        r = sess.get(self.etag_url)
+        r = client.get(self.etag_url)
 
         # make sure we cached it
         assert self.cache.get(self.etag_url) == r.raw
 
         # make the same request
-        resp = sess.get(self.etag_url)
+        resp = client.get(self.etag_url)
         assert resp.raw == r.raw
         assert resp.from_cache
 
         # tell the server to change the etags of the response
-        sess.get(self.update_etag_url)
+        client.get(self.update_etag_url)
 
-        resp = sess.get(self.etag_url)
+        resp = client.get(self.etag_url)
         assert resp != r
         assert not resp.from_cache
 
@@ -97,24 +100,26 @@ class TestDisabledETags(object):
     """
 
     @pytest.fixture()
-    def sess(self, server, url):
+    def client(self, server, url):
         self.etag_url = urljoin(url, "/etag")
         self.update_etag_url = urljoin(url, "/update_etag")
         self.cache = DictCache()
-        sess = CacheControl(
-            requests.Session(),
-            cache=self.cache,
-            cache_etags=False,
-            serializer=NullSerializer(),
-        )
-        return sess
 
-    def test_expired_etags_if_none_match_response(self, sess):
+        client = Client(
+            transport=CacheControlTransport(
+                cache=self.cache,
+                cache_etags=False,
+                serializer=NullSerializer()
+            )
+        )
+        return client
+
+    def test_expired_etags_if_none_match_response(self, client):
         """Make sure an expired response that contains an ETag uses
         the If-None-Match header.
         """
         # get our response
-        r = sess.get(self.etag_url)
+        r = client.get(self.etag_url)
 
         # expire our request by changing the date. Our test endpoint
         # doesn't provide time base caching headers, so we add them
@@ -122,7 +127,7 @@ class TestDisabledETags(object):
         r.headers["Date"] = "Tue, 26 Nov 2012 00:50:49 GMT"
         self.cache.set(self.etag_url, r.raw)
 
-        r = sess.get(self.etag_url)
+        r = client.get(self.etag_url)
         assert r.from_cache
         assert "if-none-match" in r.request.headers
         assert r.status_code == 200
@@ -138,9 +143,9 @@ class TestReleaseConnection(object):
     """
 
     def test_not_modified_releases_connection(self, server, url):
-        sess = CacheControl(requests.Session())
+        client = Client(transport=CacheControlTransport())
         etag_url = urljoin(url, "/etag")
-        sess.get(etag_url)
+        client.get(etag_url)
 
         resp = Mock(status=304, headers={})
 
@@ -149,6 +154,6 @@ class TestReleaseConnection(object):
         response_mod = "requests.adapters.HTTPResponse.from_httplib"
 
         with patch(response_mod, Mock(return_value=resp)):
-            sess.get(etag_url)
+            client.get(etag_url)
             assert resp.read.called
             assert resp.release_conn.called
