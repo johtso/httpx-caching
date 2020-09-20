@@ -9,10 +9,10 @@ from email.utils import formatdate, parsedate
 from datetime import datetime
 
 from mock import Mock
-from requests import Session, get
-from requests.structures import CaseInsensitiveDict
+import httpx
+from httpx import Client, Headers
 
-from cachecontrol import CacheControl
+from cachecontrol import CacheControlTransport
 from cachecontrol.heuristics import LastModified, ExpiresAfter, OneDayCache
 from cachecontrol.heuristics import TIME_FMT
 from cachecontrol.heuristics import BaseHeuristic
@@ -31,11 +31,15 @@ class TestHeuristicWithoutWarning(object):
                 return {}
 
         self.heuristic = NoopHeuristic()
-        self.sess = CacheControl(Session(), heuristic=self.heuristic)
+        self.client = Client(
+            transport=CacheControlTransport(
+                heuristic=self.heuristic
+            )
+        )
 
     def test_no_header_change_means_no_warning_header(self, url):
         the_url = url + "optional_cacheable_request"
-        resp = self.sess.get(the_url)
+        resp = self.client.get(the_url)
 
         assert not self.heuristic.warning.called
 
@@ -49,43 +53,53 @@ class TestHeuristicWith3xxResponse(object):
             def update_headers(self, resp):
                 return {"x-dummy-header": "foobar"}
 
-        self.sess = CacheControl(Session(), heuristic=DummyHeuristic())
+        self.client = Client(
+            transport=CacheControlTransport(
+                heuristic=DummyHeuristic()
+            )
+        )
 
     def test_heuristic_applies_to_301(self, url):
         the_url = url + "permanent_redirect"
-        resp = self.sess.get(the_url)
+        resp = self.client.get(the_url)
         assert "x-dummy-header" in resp.headers
 
     def test_heuristic_applies_to_304(self, url):
         the_url = url + "conditional_get"
-        resp = self.sess.get(the_url)
+        resp = self.client.get(the_url)
         assert "x-dummy-header" in resp.headers
 
 
 class TestUseExpiresHeuristic(object):
 
     def test_expires_heuristic_arg(self):
-        sess = Session()
-        cached_sess = CacheControl(sess, heuristic=Mock())
-        assert cached_sess
+        cached_client = Client(
+            transport=CacheControlTransport(
+                heuristic=Mock()
+            )
+        )
+        assert cached_client
 
 
 class TestOneDayCache(object):
 
     def setup(self):
-        self.sess = Session()
-        self.cached_sess = CacheControl(self.sess, heuristic=OneDayCache())
+        self.client = Client(
+            transport=CacheControlTransport(
+                heuristic=OneDayCache()
+            )
+        )
 
     def test_cache_for_one_day(self, url):
         the_url = url + "optional_cacheable_request"
-        r = self.sess.get(the_url)
+        r = self.client.get(the_url)
 
         assert "expires" in r.headers
         assert "warning" in r.headers
 
         pprint(dict(r.headers))
 
-        r = self.sess.get(the_url)
+        r = self.client.get(the_url)
         pprint(dict(r.headers))
         assert r.from_cache
 
@@ -93,40 +107,43 @@ class TestOneDayCache(object):
 class TestExpiresAfter(object):
 
     def setup(self):
-        self.sess = Session()
-        self.cache_sess = CacheControl(self.sess, heuristic=ExpiresAfter(days=1))
+        self.client = Client(
+            transport=CacheControlTransport(
+                heuristic=ExpiresAfter(days=1)
+            )
+        )
 
     def test_expires_after_one_day(self, url):
         the_url = url + "no_cache"
-        resp = get(the_url)
+        resp = httpx.get(the_url)
         assert resp.headers["cache-control"] == "no-cache"
 
-        r = self.sess.get(the_url)
+        r = self.client.get(the_url)
 
         assert "expires" in r.headers
         assert "warning" in r.headers
         assert r.headers["cache-control"] == "public"
 
-        r = self.sess.get(the_url)
+        r = self.client.get(the_url)
         assert r.from_cache
 
 
 class TestLastModified(object):
 
     def setup(self):
-        self.sess = Session()
-        self.cached_sess = CacheControl(self.sess, heuristic=LastModified())
+        self.client = Session()
+        self.cached_client = CacheControl(self.client, heuristic=LastModified())
 
     def test_last_modified(self, url):
         the_url = url + "optional_cacheable_request"
-        r = self.sess.get(the_url)
+        r = self.client.get(the_url)
 
         assert "expires" in r.headers
         assert "warning" not in r.headers
 
         pprint(dict(r.headers))
 
-        r = self.sess.get(the_url)
+        r = self.client.get(the_url)
         pprint(dict(r.headers))
         assert r.from_cache
 
@@ -135,7 +152,7 @@ class DummyResponse:
 
     def __init__(self, status, headers):
         self.status = status
-        self.headers = CaseInsensitiveDict(headers)
+        self.headers = Headers(headers)
 
 
 def datetime_to_header(dt):
