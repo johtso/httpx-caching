@@ -44,7 +44,6 @@ class TestETag(object):
         )
         yield client
 
-        # closing cliention object
         client.close()
 
     def test_etags_get_example(self, client, server):
@@ -142,8 +141,7 @@ class TestReleaseConnection(object):
     empty according to the HTTP spec) and release the connection.
     """
 
-    def test_not_modified_releases_connection(self, server, url):
-        client = Client(transport=CacheControlTransport())
+    def test_not_modified_releases_connection(self, server, url, client):
         etag_url = urljoin(url, "/etag")
         client.get(etag_url)
 

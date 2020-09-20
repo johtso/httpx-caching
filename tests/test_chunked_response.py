@@ -7,16 +7,6 @@ Test for supporting streamed responses (Transfer-Encoding: chunked)
 from __future__ import print_function, unicode_literals
 
 import pytest
-from httpx import Client
-
-from cachecontrol import CacheControlTransport
-
-
-@pytest.fixture()
-def client():
-    client = Client(transport=CacheControlTransport())
-    yield client
-    client.close()
 
 
 class TestChunkedResponses(object):

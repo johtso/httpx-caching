@@ -10,14 +10,6 @@ from cachecontrol.transport import CacheControlTransport
 from cachecontrol.cache import DictCache
 
 
-@pytest.fixture
-def client(url):
-    client = Client(transport=CacheControlTransport())
-    client.get(url)
-    yield client
-    client.close()
-
-
 class TestClientActions(object):
 
     def test_get_caches(self, url, client):

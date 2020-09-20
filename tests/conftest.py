@@ -10,6 +10,8 @@ import socket
 import pytest
 
 import cherrypy
+from httpx import Client
+from cachecontrol import CacheControlTransport
 
 
 class SimpleApp(object):
@@ -114,6 +116,11 @@ class SimpleApp(object):
 def server():
     return cherrypy.server
 
+@pytest.fixture()
+def client():
+    client = Client(transport=CacheControlTransport())
+    yield client
+    client.close()
 
 @pytest.fixture()
 def url(server):
