@@ -5,49 +5,46 @@
 import io
 
 import msgpack
-from httpx import Headers, Response
+from httpx import Headers
 
 
 class Serializer(object):
 
-    def dumps(self, request, response, body):
-        response_headers = Headers(response.headers)
+    def dumps(
+            self,
+            request_headers,
+            response_headers,
+            response_status_code,
+            response_http_version,
+            response_reason_phrase,
+            body
+            ):
+        # TODO: What was decode_content and strict flag caching about?
 
-        # NOTE: This is all a bit weird, but it's really important that on
-        #       Python 2.x these objects are unicode and not str, even when
-        #       they contain only ascii. The problem here is that msgpack
-        #       understands the difference between unicode and bytes and we
-        #       have it set to differentiate between them, however Python 2
-        #       doesn't know the difference. Forcing these to unicode will be
-        #       enough to have msgpack know the difference.
+        response_headers = response_headers.copy()
+
         data = {
-            u"response": {
-                u"body": body,
-                u"headers": dict(
-                    (text_type(k), text_type(v)) for k, v in response.headers.items()
-                ),
-                u"status": response.status,
-                u"version": response.version,
-                u"reason": text_type(response.reason),
-                u"strict": response.strict,
-                u"decode_content": response.decode_content,
-            }
+            "response": {
+                "body": body,
+                "headers": response_headers,
+                "status_code": response_status_code,
+                "http_version": response_http_version,
+                "reason_phrase": response_reason_phrase,
+            },
+            "vary": {}
         }
 
         # Construct our vary headers
-        data[u"vary"] = {}
-        if u"vary" in response_headers:
-            varied_headers = response_headers[u"vary"].split(",")
+        if "vary" in response_headers:
+            varied_headers = response_headers["vary"].split(",")
             for header in varied_headers:
-                header = text_type(header).strip()
-                header_value = request.headers.get(header, None)
-                if header_value is not None:
-                    header_value = text_type(header_value)
-                data[u"vary"][header] = header_value
+                header = header.strip()
+                header_value = request_headers.get(header, None)
+                data["vary"][header] = header_value
 
         return b",".join([b"cc=0", msgpack.dumps(data, use_bin_type=True)])
 
-    def loads(self, request, data):
+    def loads(self, request_headers, data):
         # Short circuit if we've been given an empty set of data
         if not data:
             return
@@ -70,54 +67,40 @@ class Serializer(object):
 
         # Dispatch to the actual load method for the given version
         try:
-            return getattr(self, "_loads_v{}".format(ver))(request, data)
+            return getattr(self, "_loads_v{}".format(ver))(request_headers, data)
 
         except AttributeError:
             # This is a version we don't have a loads function for, so we'll
             # just treat it as a miss and return None
             return
 
-    def prepare_response(self, request, cached):
-        """Verify our vary headers match and construct a real Response object.
+    def prepare_response(self, request_headers, cached):
+        """Verify our vary headers match and return response values.
         """
-        # Special case the '*' Vary value as it means we cannot actually
-        # determine if the cached response is suitable for this request.
-        # This case is also handled in the controller code when creating
-        # a cache entry, but is left here for backwards compatibility.
-        if "*" in cached.get("vary", {}):
-            return
-
         # Ensure that the Vary headers for the cached response match our
         # request
         for header, value in cached.get("vary", {}).items():
-            if request.headers.get(header, None) != value:
+            if request_headers.get(header, None) != value:
                 return
 
-        body_raw = cached["response"].pop("body")
+        cached_response = cached["response"]
 
-        headers = Headers(data=cached["response"]["headers"])
+        headers = Headers(cached_response["headers"])
         if headers.get("transfer-encoding", "") == "chunked":
             headers.pop("transfer-encoding")
 
-        cached["response"]["headers"] = headers
+        http_version = cached_response["http_version"]
+        reason_phrase = cached_response["reason_phrase"]
+        status_code = cached_response["status_code"]
 
-        try:
-            body = io.BytesIO(body_raw)
-        except TypeError:
-            # This can happen if cachecontrol serialized to v1 format (pickle)
-            # using Python 2. A Python 2 str(byte string) will be unpickled as
-            # a Python 3 str (unicode string), which will cause the above to
-            # fail with:
-            #
-            #     TypeError: 'str' does not support the buffer interface
-            body = io.BytesIO(body_raw.encode("utf8"))
+        body = io.BytesIO(cached_response["body"])
 
-        return Response(body=body, preload_content=False, **cached["response"])
+        return http_version, status_code, reason_phrase, headers, body
 
-    def _loads_v0(self, request, data):
+    def _loads_v0(self, request_headers, data):
         try:
             cached = msgpack.loads(data, raw=False)
         except ValueError:
             return
 
-        return self.prepare_response(request, cached)
+        return self.prepare_response(request_headers, cached)
