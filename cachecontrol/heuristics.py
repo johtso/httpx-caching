@@ -23,7 +23,7 @@ def datetime_to_header(dt):
 
 class BaseHeuristic(object):
 
-    def warning(self, response):
+    def warning(self):
         """
         Return a valid 1xx warning header value describing the cache
         adjustments.
@@ -34,7 +34,7 @@ class BaseHeuristic(object):
         """
         return '110 - "Response is Stale"'
 
-    def update_headers(self, response):
+    def update_headers(self, response_headers, response_status):
         """Update the response headers with any new headers.
 
         NOTE: This SHOULD always include some Warning header to
@@ -43,16 +43,17 @@ class BaseHeuristic(object):
         """
         return {}
 
-    def apply(self, response):
-        updated_headers = self.update_headers(response)
+    def apply(self, response_headers, response_status):
+        new_headers = response_headers.copy()
+        updated_headers = self.update_headers(response_headers, response_status)
 
         if updated_headers:
-            response.headers.update(updated_headers)
-            warning_header_value = self.warning(response)
+            new_headers.update(updated_headers)
+            warning_header_value = self.warning()
             if warning_header_value is not None:
-                response.headers.update({"Warning": warning_header_value})
+                new_headers.update({"Warning": warning_header_value})
 
-        return response
+        return new_headers
 
 
 class OneDayCache(BaseHeuristic):
@@ -61,11 +62,11 @@ class OneDayCache(BaseHeuristic):
     future.
     """
 
-    def update_headers(self, response):
+    def update_headers(self, response_headers, response_status):
         headers = {}
 
-        if "expires" not in response.headers:
-            date = parsedate(response.headers["date"])
+        if "expires" not in response_headers:
+            date = parsedate(response_headers["date"])
             expires = expire_after(timedelta(days=1), date=datetime(*date[:6]))
             headers["expires"] = datetime_to_header(expires)
             headers["cache-control"] = "public"
@@ -80,11 +81,11 @@ class ExpiresAfter(BaseHeuristic):
     def __init__(self, **kw):
         self.delta = timedelta(**kw)
 
-    def update_headers(self, response):
+    def update_headers(self, response_headers, response_status):
         expires = expire_after(self.delta)
         return {"expires": datetime_to_header(expires), "cache-control": "public"}
 
-    def warning(self, response):
+    def warning(self):
         tmpl = "110 - Automatically cached for %s. Response might be stale"
         return tmpl % self.delta
 
@@ -105,23 +106,21 @@ class LastModified(BaseHeuristic):
         200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501
     }
 
-    def update_headers(self, resp):
-        headers = resp.headers
-
-        if "expires" in headers:
+    def update_headers(self, response_headers, response_status):
+        if "expires" in response_headers:
             return {}
 
-        if "cache-control" in headers and headers["cache-control"] != "public":
+        if "cache-control" in response_headers and response_headers["cache-control"] != "public":
             return {}
 
-        if resp.status not in self.cacheable_by_default_statuses:
+        if response_status not in self.cacheable_by_default_statuses:
             return {}
 
-        if "date" not in headers or "last-modified" not in headers:
+        if "date" not in response_headers or "last-modified" not in response_headers:
             return {}
 
-        date = calendar.timegm(parsedate_tz(headers["date"]))
-        last_modified = parsedate(headers["last-modified"])
+        date = calendar.timegm(parsedate_tz(response_headers["date"]))
+        last_modified = parsedate(response_headers["last-modified"])
         if date is None or last_modified is None:
             return {}
 
@@ -135,5 +134,5 @@ class LastModified(BaseHeuristic):
         expires = date + freshness_lifetime
         return {"expires": time.strftime(TIME_FMT, time.gmtime(expires))}
 
-    def warning(self, resp):
+    def warning(self):
         return None
