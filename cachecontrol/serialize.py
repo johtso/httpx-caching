@@ -2,32 +2,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import base64
 import io
-import json
-import zlib
 
 import msgpack
-from requests.structures import CaseInsensitiveDict
+from httpx import Headers
 
-from .compat import HTTPResponse, pickle, text_type
-
-
-def _b64_decode_bytes(b):
-    return base64.b64decode(b.encode("ascii"))
-
-
-def _b64_decode_str(s):
-    return _b64_decode_bytes(s).decode("utf8")
-
-
-_default_body_read = object()
+from .compat import HTTPResponse, text_type
 
 
 class Serializer(object):
 
     def dumps(self, request, response, body):
-        response_headers = CaseInsensitiveDict(response.headers)
+        response_headers = Headers(response.headers)
 
         # NOTE: This is all a bit weird, but it's really important that on
         #       Python 2.x these objects are unicode and not str, even when
@@ -61,7 +47,7 @@ class Serializer(object):
                     header_value = text_type(header_value)
                 data[u"vary"][header] = header_value
 
-        return b",".join([b"cc=4", msgpack.dumps(data, use_bin_type=True)])
+        return b",".join([b"cc=0", msgpack.dumps(data, use_bin_type=True)])
 
     def loads(self, request, data):
         # Short circuit if we've been given an empty set of data
@@ -112,7 +98,7 @@ class Serializer(object):
 
         body_raw = cached["response"].pop("body")
 
-        headers = CaseInsensitiveDict(data=cached["response"]["headers"])
+        headers = Headers(data=cached["response"]["headers"])
         if headers.get("transfer-encoding", "") == "chunked":
             headers.pop("transfer-encoding")
 
@@ -132,46 +118,6 @@ class Serializer(object):
         return HTTPResponse(body=body, preload_content=False, **cached["response"])
 
     def _loads_v0(self, request, data):
-        # The original legacy cache data. This doesn't contain enough
-        # information to construct everything we need, so we'll treat this as
-        # a miss.
-        return
-
-    def _loads_v1(self, request, data):
-        try:
-            cached = pickle.loads(data)
-        except ValueError:
-            return
-
-        return self.prepare_response(request, cached)
-
-    def _loads_v2(self, request, data):
-        try:
-            cached = json.loads(zlib.decompress(data).decode("utf8"))
-        except (ValueError, zlib.error):
-            return
-
-        # We need to decode the items that we've base64 encoded
-        cached["response"]["body"] = _b64_decode_bytes(cached["response"]["body"])
-        cached["response"]["headers"] = dict(
-            (_b64_decode_str(k), _b64_decode_str(v))
-            for k, v in cached["response"]["headers"].items()
-        )
-        cached["response"]["reason"] = _b64_decode_str(cached["response"]["reason"])
-        cached["vary"] = dict(
-            (_b64_decode_str(k), _b64_decode_str(v) if v is not None else v)
-            for k, v in cached["vary"].items()
-        )
-
-        return self.prepare_response(request, cached)
-
-    def _loads_v3(self, request, data):
-        # Due to Python 2 encoding issues, it's impossible to know for sure
-        # exactly how to load v3 entries, thus we'll treat these as a miss so
-        # that they get rewritten out as v4 entries.
-        return
-
-    def _loads_v4(self, request, data):
         try:
             cached = msgpack.loads(data, raw=False)
         except ValueError:
