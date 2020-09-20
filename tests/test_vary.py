@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-import requests
 
-from cachecontrol import CacheControl
+from httpx import Client
+
+from cachecontrol import CacheControlTransport
 from cachecontrol.cache import DictCache
 from cachecontrol.compat import urljoin
 
@@ -15,11 +16,11 @@ from pprint import pprint
 class TestVary(object):
 
     @pytest.fixture()
-    def sess(self, url):
+    def client(self, url):
         self.url = urljoin(url, "/vary_accept")
         self.cache = DictCache()
-        sess = CacheControl(requests.Session(), cache=self.cache)
-        return sess
+        client = Client(transport=CacheControlTransport(cache=self.cache))
+        return client
 
     def cached_equal(self, cached, resp):
         # remove any transfer-encoding headers as they don't apply to
@@ -42,7 +43,7 @@ class TestVary(object):
         pprint(dict(resp.raw.headers))
         return all(checks)
 
-    def test_vary_example(self, sess):
+    def test_vary_example(self, client):
         """RFC 2616 13.6
 
         When the cache receives a subsequent request whose Request-URI
@@ -57,20 +58,20 @@ class TestVary(object):
         in the Vary header are the same, it won't use the cached
         value.
         """
-        s = sess.adapters["http://"].controller.serializer
-        r = sess.get(self.url)
+        s = client._transport.controller.serializer
+        r = client.get(self.url)
         c = s.loads(r.request, self.cache.get(self.url))
 
         # make sure we cached it
         assert self.cached_equal(c, r)
 
         # make the same request
-        resp = sess.get(self.url)
+        resp = client.get(self.url)
         assert self.cached_equal(c, resp)
         assert resp.from_cache
 
         # make a similar request, changing the accept header
-        resp = sess.get(self.url, headers={"Accept": "text/plain, text/html"})
+        resp = client.get(self.url, headers={"Accept": "text/plain, text/html"})
         assert not self.cached_equal(c, resp)
         assert not resp.from_cache
 
