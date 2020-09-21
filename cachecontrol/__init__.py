@@ -10,5 +10,5 @@ __author__ = "Eric Larson"
 __email__ = "eric@ionrock.org"
 __version__ = "0.12.6"
 
-from .transport import CacheControlTransport
+from .adapter import SyncHTTPCacheTransport
 from .controller import CacheController

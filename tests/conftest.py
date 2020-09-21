@@ -11,7 +11,7 @@ import pytest
 
 import cherrypy
 from httpx import Client
-from cachecontrol import CacheControlTransport
+from cachecontrol import SyncHTTPCacheTransport
 
 
 class SimpleApp(object):
@@ -118,7 +118,8 @@ def server():
 
 @pytest.fixture()
 def client():
-    client = Client(transport=CacheControlTransport())
+    client = Client()
+    client._transport = SyncHTTPCacheTransport(transport=client._transport, debug=True)
     yield client
     client.close()
 

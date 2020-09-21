@@ -2,9 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import io
-
 import msgpack
+import httpcore
 from httpx import Headers
 
 
@@ -26,7 +25,7 @@ class Serializer(object):
         data = {
             "response": {
                 "body": body,
-                "headers": response_headers,
+                "headers": response_headers.raw,
                 "status_code": response_status_code,
                 "http_version": response_http_version,
                 "reason_phrase": response_reason_phrase,
@@ -93,7 +92,7 @@ class Serializer(object):
         reason_phrase = cached_response["reason_phrase"]
         status_code = cached_response["status_code"]
 
-        body = io.BytesIO(cached_response["body"])
+        body = httpcore.PlainByteStream(cached_response["body"])
 
         return http_version, status_code, reason_phrase, headers, body
 
