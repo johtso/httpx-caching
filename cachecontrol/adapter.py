@@ -10,6 +10,7 @@ from httpx import codes, Headers
 
 from .controller import CacheController, PERMANENT_REDIRECT_STATUSES
 from .cache import DictCache
+from .models import Response
 
 
 class SyncByteStreamWrapper(httpcore.SyncByteStream):
@@ -83,31 +84,26 @@ class HTTPCacheTransport:
         request_url,
         request_method,
         request_headers,
-        response_http_version,
-        response_status_code,
-        response_reason_phrase,
-        response_headers,
-        response_body,
+        response,
         from_cache
             ):
 
         cached_response = None
-        response_headers = Headers(response_headers)
         # TODO: is cacheability being checked in too many places?
         if not from_cache and request_method in self.cacheable_methods:
             # Check for any heuristics that might update headers
             # before trying to cache.
             if self.heuristic:
-                response_headers = self.heuristic.apply(response_headers, response_status_code)
+                self.heuristic.apply(response.headers, response.status_code)
 
             # apply any expiration heuristics
-            if response_status_code == 304:
+            if response.status_code == 304:
                 # We must have sent an ETag request. This could mean
                 # that we've been expired already or that we simply
                 # have an etag. In either case, we want to try and
                 # update the cache if that is the case.
                 cached_response = self.controller.update_cached_response(
-                    request_url, request_headers, response_headers
+                    request_url, request_headers, response.headers
                 )
 
                 # We are done with the server response, read a
@@ -115,34 +111,28 @@ class HTTPCacheTransport:
                 # not return one, but we cannot be 100% sure) and
                 # release the connection back to the pool.
                 # TODO: Is this enough to release the connection to the pool?
-                for _ in response_body:
+                for _ in response.stream:
                     pass
-                response_body.close()
+                response.stream.close()
 
             # We always cache the 301 responses
-            elif response_status_code in PERMANENT_REDIRECT_STATUSES:
+            elif response.status_code in PERMANENT_REDIRECT_STATUSES:
                 self.controller.cache_response(
                      request_url,
                      request_headers,
-                     response_headers,
-                     response_status_code,
-                     response_reason_phrase,
-                     response_http_version,
-                     response_body
+                     response
                 )
             else:
                 # Wrap the response file with a wrapper that will cache the
                 #   response when the stream has been consumed.
-                response_body = SyncByteStreamWrapper(
-                    response_body,
+                # TODO: Should this be self.StreamWrapper?
+                response.stream = SyncByteStreamWrapper(
+                    response.stream,
                     functools.partial(
                         self.controller.cache_response,
                         request_url,
                         request_headers,
-                        response_headers,
-                        response_status_code,
-                        response_reason_phrase,
-                        response_http_version
+                        response
                     ),
                 )
 
@@ -154,13 +144,7 @@ class HTTPCacheTransport:
         if cached_response:
             return cached_response, True
         else:
-            return (
-                response_http_version,
-                response_status_code,
-                response_reason_phrase,
-                response_headers,
-                response_body
-            ), from_cache
+            return response, from_cache
 
     def close(self):
         self.cache.close()
@@ -179,19 +163,15 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             from_cache = True
         else:
             response = self.transport.request(method, url, new_request_headers.raw, stream, timeout)
+            response = Response.from_raw(response)
             from_cache = False
 
         # TODO: Could still be from cache?
-        response, from_cache = self.post_request(url, method, headers, *response, from_cache=from_cache)
+        response, from_cache = self.post_request(url, method, headers, response, from_cache=from_cache)
         if self.debug:
-            headers = response[3]
-            headers['x-cache'] = 'hit' if from_cache else 'miss'
+            response.headers['x-cache'] = 'hit' if from_cache else 'miss'
 
-        response_list = list(response)
-        response_list[3] = headers.raw
-        response = tuple(response_list)
-
-        return response
+        return response.to_raw()
 
 
 class AsyncHTTPCacheTransport(HTTPCacheTransport, httpcore.AsyncHTTPTransport):

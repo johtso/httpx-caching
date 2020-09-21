@@ -11,6 +11,7 @@ class TestClientActions(object):
 
     def test_get_caches(self, url, client):
         client.get(url)
+        print(client._transport.cache.data)
         r2 = client.get(url)
         assert cache_hit(r2)
 

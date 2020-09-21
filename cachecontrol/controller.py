@@ -121,14 +121,6 @@ class CacheController(object):
             logger.warning("Cache entry deserialization failed, entry ignored")
             return False
 
-        (
-            response_http_version,
-            response_status_code,
-            response_reason_phrase,
-            response_headers,
-            response_body
-        ) = response
-
         # If we have a cached permanent redirect, return it immediately. We
         # don't need to test our response for other headers b/c it is
         # intrinsically "cacheable" as it is Permanent.
@@ -138,7 +130,7 @@ class CacheController(object):
         #
         # Client can try to refresh the value by repeating the request
         # with cache busting headers as usual (ie no-cache).
-        if response_status_code in PERMANENT_REDIRECT_STATUSES:
+        if response.status_code in PERMANENT_REDIRECT_STATUSES:
             msg = (
                 'Returning cached permanent redirect response '
                 "(ignoring date and etag information)"
@@ -146,8 +138,8 @@ class CacheController(object):
             logger.debug(msg)
             return response
 
-        if not response_headers or "date" not in response_headers:
-            if "etag" not in response_headers:
+        if not response.headers or "date" not in response.headers:
+            if "etag" not in response.headers:
                 # Without date or etag, the cached response can never be used
                 # and should be deleted.
                 logger.debug("Purging cached response: no date or etag")
@@ -156,7 +148,7 @@ class CacheController(object):
             return False
 
         now = time.time()
-        date = calendar.timegm(parsedate_tz(response_headers["date"]))
+        date = calendar.timegm(parsedate_tz(response.headers["date"]))
         current_age = max(0, now - date)
         logger.debug("Current age based on date: %i", current_age)
 
@@ -164,7 +156,7 @@ class CacheController(object):
         #       urllib3 response object. This may not be best since we
         #       could probably avoid instantiating or constructing the
         #       response until we know we need it.
-        resp_cc = self.parse_cache_control(response_headers)
+        resp_cc = self.parse_cache_control(response.headers)
 
         # determine freshness
         freshness_lifetime = 0
@@ -175,8 +167,8 @@ class CacheController(object):
             logger.debug("Freshness lifetime from max-age: %i", freshness_lifetime)
 
         # If there isn't a max-age, check for an expires header
-        elif "expires" in response_headers:
-            expires = parsedate_tz(response_headers["expires"])
+        elif "expires" in response.headers:
+            expires = parsedate_tz(response.headers["expires"])
             if expires is not None:
                 expire_time = calendar.timegm(expires) - date
                 freshness_lifetime = max(0, expire_time)
@@ -203,7 +195,7 @@ class CacheController(object):
             return response
 
         # we're not fresh. If we don't have an Etag, clear it out
-        if "etag" not in response_headers:
+        if "etag" not in response.headers:
             logger.debug('The cached response is "stale" with no etag, purging')
             self.cache.delete(cache_url)
 
@@ -216,14 +208,11 @@ class CacheController(object):
         new_headers = {}
 
         if response:
-            # TODO: No magic indexes please
-            headers = response[3]
+            if "etag" in response.headers:
+                new_headers["If-None-Match"] = response.headers["ETag"]
 
-            if "etag" in headers:
-                new_headers["If-None-Match"] = headers["ETag"]
-
-            if "last-modified" in headers:
-                new_headers["If-Modified-Since"] = headers["Last-Modified"]
+            if "last-modified" in response.headers:
+                new_headers["If-Modified-Since"] = response.headers["Last-Modified"]
 
         return new_headers
 
@@ -231,20 +220,17 @@ class CacheController(object):
             self,
             request_url,
             request_headers,
-            response_headers,
-            response_status_code,
-            response_reason_phrase,
-            response_http_version,
-            response_body,
+            response,
+            response_body
             ):
         """
         Algorithm for caching requests.
         """
         # From httplib2: Don't cache 206's since we aren't going to
         #                handle byte range requests
-        if response_status_code not in self.cacheable_status_codes:
+        if response.status_code not in self.cacheable_status_codes:
             logger.debug(
-                "Status code %s not in %s", response_status_code, self.cacheable_status_codes
+                "Status code %s not in %s", response.status_code, self.cacheable_status_codes
             )
             return
 
@@ -254,14 +240,14 @@ class CacheController(object):
         # skip trying to cache it.
         if (
             response_body is not None
-            and "content-length" in response_headers
-            and response_headers["content-length"].isdigit()
-            and int(response_headers["content-length"]) != len(response_body)
+            and "content-length" in response.headers
+            and response.headers["content-length"].isdigit()
+            and int(response.headers["content-length"]) != len(response_body)
         ):
             return
 
         cc_req = self.parse_cache_control(request_headers)
-        cc = self.parse_cache_control(response_headers)
+        cc = self.parse_cache_control(response.headers)
 
         cache_url = self.cache_url(request_url)
         logger.debug('Updating cache with response from "%s"', cache_url)
@@ -285,32 +271,32 @@ class CacheController(object):
         # Storing such a response leads to a deserialization warning
         # during cache lookup and is not allowed to ever be served,
         # so storing it can be avoided.
-        if "*" in response_headers.get("vary", ""):
+        if "*" in response.headers.get("vary", ""):
             logger.debug('Response header has "Vary: *"')
             return
 
         # If we've been given an etag, then keep the response
-        if self.cache_etags and "etag" in response_headers:
+        if self.cache_etags and "etag" in response.headers:
             logger.debug("Caching due to etag")
 
         # Add to the cache any permanent redirects. We do this before looking
         # that the Date headers.
-        elif int(response_status_code) in PERMANENT_REDIRECT_STATUSES:
+        elif int(response.status_code) in PERMANENT_REDIRECT_STATUSES:
             logger.debug("Caching permanent redirect")
             response_body = b''
 
         # Add to the cache if the response headers demand it. If there
         # is no date header then we can't do anything about expiring
         # the cache.
-        elif "date" in response_headers:
+        elif "date" in response.headers:
             # cache when there is a max-age > 0
             if "max-age" in cc and cc["max-age"] > 0:
                 logger.debug("Caching b/c date exists and max-age > 0")
 
             # If the request can expire, it means we should cache it
             # in the meantime.
-            elif "expires" in response_headers:
-                if response_headers["expires"]:
+            elif "expires" in response.headers:
+                if response.headers["expires"]:
                     logger.debug("Caching b/c of expires header")
             else:
                 return
@@ -320,10 +306,7 @@ class CacheController(object):
         self.cache.set(
             cache_url, self.serializer.dumps(
                 request_headers,
-                response_headers,
-                response_status_code,
-                response_http_version,
-                response_reason_phrase,
+                response,
                 response_body
             )
         )

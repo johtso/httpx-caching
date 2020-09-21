@@ -44,16 +44,13 @@ class BaseHeuristic(object):
         return {}
 
     def apply(self, response_headers, response_status):
-        new_headers = response_headers.copy()
         updated_headers = self.update_headers(response_headers, response_status)
 
         if updated_headers:
-            new_headers.update(updated_headers)
+            response_headers.update(updated_headers)
             warning_header_value = self.warning()
             if warning_header_value is not None:
-                new_headers.update({"Warning": warning_header_value})
-
-        return new_headers
+                response_headers.update({"Warning": warning_header_value})
 
 
 class OneDayCache(BaseHeuristic):

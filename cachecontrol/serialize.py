@@ -4,7 +4,8 @@
 
 import msgpack
 import httpcore
-from httpx import Headers
+
+from .models import Response
 
 
 class Serializer(object):
@@ -12,30 +13,25 @@ class Serializer(object):
     def dumps(
             self,
             request_headers,
-            response_headers,
-            response_status_code,
-            response_http_version,
-            response_reason_phrase,
-            body
+            response,
+            response_body
             ):
         # TODO: What was decode_content and strict flag caching about?
 
-        response_headers = response_headers.copy()
-
         data = {
             "response": {
-                "body": body,
-                "headers": response_headers.raw,
-                "status_code": response_status_code,
-                "http_version": response_http_version,
-                "reason_phrase": response_reason_phrase,
+                "body": response_body,
+                "headers": response.headers.raw,
+                "status_code": response.status_code,
+                "http_version": response.http_version,
+                "reason_phrase": response.reason_phrase,
             },
             "vary": {}
         }
 
         # Construct our vary headers
-        if "vary" in response_headers:
-            varied_headers = response_headers["vary"].split(",")
+        if "vary" in response.headers:
+            varied_headers = response.headers["vary"].split(",")
             for header in varied_headers:
                 header = header.strip()
                 header_value = request_headers.get(header, None)
@@ -84,17 +80,18 @@ class Serializer(object):
 
         cached_response = cached["response"]
 
-        headers = Headers(cached_response["headers"])
-        if headers.get("transfer-encoding", "") == "chunked":
-            headers.pop("transfer-encoding")
-
         http_version = cached_response["http_version"]
-        reason_phrase = cached_response["reason_phrase"]
         status_code = cached_response["status_code"]
+        reason_phrase = cached_response["reason_phrase"]
+        headers = cached_response["headers"]
+        stream = httpcore.PlainByteStream(cached_response["body"])
 
-        body = httpcore.PlainByteStream(cached_response["body"])
+        response = Response.from_raw((http_version, status_code, reason_phrase, headers, stream))
 
-        return http_version, status_code, reason_phrase, headers, body
+        if response.headers.get("transfer-encoding", "") == "chunked":
+            response.headers.pop("transfer-encoding")
+
+        return response
 
     def _loads_v0(self, request_headers, data):
         try:
