@@ -325,14 +325,6 @@ class CacheController(object):
         if not cached_response:
             # we didn't have a cached response
             return
-        else:
-            (
-                cached_http_version,
-                cached_status_code,
-                cached_reason_phrase,
-                cached_headers,
-                cached_body
-            ) = cached_response
 
         # Lets update our headers with the headers from the new request:
         # http://tools.ietf.org/html/draft-ietf-httpbis-p4-conditional-26#section-4.1
@@ -343,7 +335,7 @@ class CacheController(object):
         # typical assumptions.
         excluded_headers = ["content-length"]
 
-        cached_headers.update(
+        cached_response.headers.update(
             dict(
                 (k, v)
                 for k, v in response_headers.items()
@@ -352,26 +344,16 @@ class CacheController(object):
         )
 
         # we want a 200 b/c we have content via the cache
-        cached_status_code = 200
+        cached_response.status_code = 200
 
         # update our cache
-        body = cached_body.read(decode_content=False)
         self.cache.set(
             cache_url,
             self.serializer.dumps(
                 request_headers,
-                cached_headers,
-                cached_status_code,
-                cached_http_version,
-                cached_reason_phrase,
-                body
+                cached_response,
+                cached_response.stream
             )
         )
 
-        return (
-            cached_http_version,
-            cached_status_code,
-            cached_reason_phrase,
-            cached_headers,
-            cached_body
-        )
+        return cached_response
