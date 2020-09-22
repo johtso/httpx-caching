@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
-def cache_hit(resp):
-    return resp.headers['X-Cache'].lower() == 'hit'
+from .conftest import cache_hit
 
 
 class TestClientActions(object):
@@ -38,9 +36,9 @@ class TestClientActions(object):
         client.get(url)
         assert not cache_hit(r2)
 
-    # def test_close(self):
-    #     cache = mock.Mock(spec=DictCache)
-    #     client = Client(transport=SyncHTTPCacheTransport(cache))
-    #
-    #     client.close()
-    #     assert cache.close.called
+    def test_close(self):
+        cache = mock.Mock(spec=DictCache)
+        client = Client(transport=SyncHTTPCacheTransport(cache))
+
+        client.close()
+        assert cache.close.called

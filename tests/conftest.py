@@ -112,6 +112,10 @@ class SimpleApp(object):
         return [pformat(env).encode("utf8")]
 
 
+def cache_hit(resp):
+    return resp.headers['X-Cache'].lower() == 'hit'
+
+
 @pytest.fixture(scope="session")
 def server():
     return cherrypy.server
