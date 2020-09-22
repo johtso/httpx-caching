@@ -23,8 +23,8 @@ class Serializer(object):
                 "body": response_body,
                 "headers": response.headers.raw,
                 "status_code": response.status_code,
-                "http_version": response.http_version,
-                "reason_phrase": response.reason_phrase,
+                # TODO: Make sure we don't explode if there's something naughty in ext
+                "ext": response.ext,
             },
             "vary": {}
         }
@@ -80,13 +80,12 @@ class Serializer(object):
 
         cached_response = cached["response"]
 
-        http_version = cached_response["http_version"]
         status_code = cached_response["status_code"]
-        reason_phrase = cached_response["reason_phrase"]
         headers = cached_response["headers"]
         stream = httpcore.PlainByteStream(cached_response["body"])
+        ext = cached_response["ext"]
 
-        response = Response.from_raw((http_version, status_code, reason_phrase, headers, stream))
+        response = Response.from_raw((status_code, headers, stream, ext))
 
         if response.headers.get("transfer-encoding", "") == "chunked":
             response.headers.pop("transfer-encoding")

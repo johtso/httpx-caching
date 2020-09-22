@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
-from typing import Callable, Iterator
+from typing import Callable, Iterator, Tuple
 
 import httpcore
-from httpx import codes, Headers
+from httpcore import _types as httpcore_types
+from httpx import codes, Headers, URL
 
 from .controller import CacheController, PERMANENT_REDIRECT_STATUSES
 from .cache import DictCache
@@ -154,15 +155,24 @@ class HTTPCacheTransport:
 class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
     # TODO: make sure supplied transport is sync
 
-    def request(self, method, url, headers, stream, timeout):
+    def request(
+        self,
+        method: bytes,
+        url: httpcore_types.URL,
+        headers: httpcore_types.Headers = None,
+        stream: httpcore.SyncByteStream = None,
+        ext: dict = None,
+    ) -> Tuple[int, httpcore_types.Headers, httpcore.SyncByteStream, dict]:
+        url = URL(url)
         headers = Headers(headers)
+
         cached_response, new_request_headers = self.pre_request(method, url, headers)
 
         if cached_response:
             response = cached_response
             from_cache = True
         else:
-            response = self.transport.request(method, url, new_request_headers.raw, stream, timeout)
+            response = self.transport.request(method, url.raw, new_request_headers.raw, stream, ext)
             response = Response.from_raw(response)
             from_cache = False
 

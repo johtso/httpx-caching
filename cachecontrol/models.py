@@ -8,16 +8,15 @@ class Response:
     """
     Simple wrapper for the raw response returned by a transport.
     """
-    http_version: bytes
     status_code: int
-    reason_phrase: bytes
     headers: Headers
     stream: Iterable
+    ext: dict
 
     @classmethod
     def from_raw(cls, raw_response):
         values = list(raw_response)
-        values[3] = Headers(values[3])
+        values[1] = Headers(values[1])
         return cls(*values)
 
     def to_raw(self):
