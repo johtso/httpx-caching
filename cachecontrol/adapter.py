@@ -62,8 +62,9 @@ class HTTPCacheTransport:
         self.controller = controller_factory(
             self.cache, cache_etags=cache_etags, serializer=serializer
         )
-        if transport:
-            self.transport = transport
+        if not transport:
+            raise ValueError('You must provide a Transport.')
+        self.transport = transport
         self.debug = debug
 
     def pre_request(self, request_method, request_url, request_headers):
