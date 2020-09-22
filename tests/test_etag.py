@@ -9,18 +9,29 @@ from mock import Mock, patch
 
 from httpx import Client
 
-from cachecontrol import CacheControlTransport
+from cachecontrol import SyncHTTPCacheTransport
 from cachecontrol.cache import DictCache
+from cachecontrol.models import Response
+
+from .conftest import cache_hit
+
+
+def raw_resp(response):
+    internal_response = Response(
+        response.status_code,
+        response.headers,
+        response.stream,
+        response.ext
+    )
+    return internal_response
 
 
 class NullSerializer(object):
 
-    def dumps(self, request, response, body=None):
+    def dumps(self, request_headers, response, response_body):
         return response
 
-    def loads(self, request, data):
-        if data and getattr(data, "chunked", False):
-            data.chunked = False
+    def loads(self, request_headers, data):
         return data
 
 
@@ -36,15 +47,19 @@ class TestETag(object):
         self.etag_url = urljoin(url, "/etag")
         self.update_etag_url = urljoin(url, "/update_etag")
         self.cache = DictCache()
-        client = Client(
-            transport=CacheControlTransport(
-                cache=self.cache,
-                serializer=NullSerializer()
-            )
+        client = Client()
+        client._transport = SyncHTTPCacheTransport(
+            transport=client._transport,
+            cache=self.cache,
+            serializer=NullSerializer(),
         )
+
         yield client
 
         client.close()
+
+    def assert_response_is_in_cache(self, url, response):
+        assert self.cache.get(url) == raw_resp(response)
 
     def test_etags_get_example(self, client, server):
         """RFC 2616 14.26
@@ -72,25 +87,25 @@ class TestETag(object):
         clients last version, and if not, it can return a 304 to indicate
         the client can use it's current representation.
         """
-        r = client.get(self.etag_url)
+        r1 = client.get(self.etag_url)
 
         # make sure we cached it
-        assert self.cache.get(self.etag_url) == r.raw
+        self.assert_response_is_in_cache(self.etag_url, r1)
 
         # make the same request
-        resp = client.get(self.etag_url)
-        assert resp.raw == r.raw
-        assert resp.from_cache
+        r2 = client.get(self.etag_url)
+        assert raw_resp(r2) == raw_resp(r1)
+        assert cache_hit(r2)
 
         # tell the server to change the etags of the response
         client.get(self.update_etag_url)
 
-        resp = client.get(self.etag_url)
-        assert resp != r
-        assert not resp.from_cache
+        r3 = client.get(self.etag_url)
+        assert raw_resp(r3) != raw_resp(r1)
+        assert not cache_hit(r3)
 
         # Make sure we updated our cache with the new etag'd response.
-        assert self.cache.get(self.etag_url) == resp.raw
+        self.assert_response_is_in_cache(self.etag_url, r3)
 
 
 class TestDisabledETags(object):
