@@ -113,7 +113,7 @@ class SimpleApp(object):
 
 
 def cache_hit(resp):
-    return resp.headers['X-Cache'].lower() == 'hit'
+    return resp.ext['from_cache']
 
 
 @pytest.fixture(scope="session")
@@ -123,7 +123,7 @@ def server():
 @pytest.fixture()
 def client():
     client = Client()
-    client._transport = SyncHTTPCacheTransport(transport=client._transport, debug=True)
+    client._transport = SyncHTTPCacheTransport(transport=client._transport)
     yield client
     client.close()
 

@@ -52,7 +52,6 @@ class HTTPCacheTransport:
         heuristic=None,
         cacheable_methods=None,
         transport=None,
-        debug=False,
     ):
         self.cache = DictCache() if cache is None else cache
         self.heuristic = heuristic
@@ -65,7 +64,6 @@ class HTTPCacheTransport:
         if not transport:
             raise ValueError('You must provide a Transport.')
         self.transport = transport
-        self.debug = debug
 
     def pre_request(self, request_method, request_url, request_headers):
         # TODO: CacheControl allowed passing cacheable_methods as part of the request?
@@ -179,8 +177,8 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
 
         # TODO: Could still be from cache?
         response, from_cache = self.post_request(url, method, headers, response, from_cache=from_cache)
-        if self.debug:
-            response.headers['x-cache'] = 'hit' if from_cache else 'miss'
+
+        response.ext['from_cache'] = from_cache
 
         return response.to_raw()
 
