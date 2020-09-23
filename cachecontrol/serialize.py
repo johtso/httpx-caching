@@ -16,8 +16,6 @@ class Serializer(object):
             response,
             response_body
             ):
-        # TODO: What was decode_content and strict flag caching about?
-
         # TODO: kludge while we put unserializable requests in ext
         ext = response.ext.copy()
         ext.pop("real_request", None)

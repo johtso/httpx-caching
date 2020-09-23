@@ -33,7 +33,6 @@ class CacheController(object):
 
     @classmethod
     def cache_url(cls, uri):
-        # TODO: what do we want to do with the tuple?
         return str(uri)
 
     def parse_cache_control(self, headers):
@@ -152,10 +151,6 @@ class CacheController(object):
         current_age = max(0, now - date)
         logger.debug("Current age based on date: %i", current_age)
 
-        # TODO: There is an assumption that the result will be a
-        #       urllib3 response object. This may not be best since we
-        #       could probably avoid instantiating or constructing the
-        #       response until we know we need it.
         resp_cc = self.parse_cache_control(response.headers)
 
         # determine freshness
