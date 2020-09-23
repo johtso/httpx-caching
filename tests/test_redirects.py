@@ -7,19 +7,19 @@ Test for supporting redirect caches as needed.
 """
 import httpx
 
-from cachecontrol import CacheControlTransport
+from .conftest import make_client, cache_hit
 
 
 class TestPermanentRedirects(object):
 
     def setup(self):
-        self.client = Client(transport=CacheControlTransport())
+        self.client = make_client()
 
     def test_redirect_response_is_cached(self, url):
         self.client.get(url + "permanent_redirect", allow_redirects=False)
 
         resp = self.client.get(url + "permanent_redirect", allow_redirects=False)
-        assert resp.from_cache
+        assert cache_hit(resp)
 
     def test_bust_cache_on_redirect(self, url):
         self.client.get(url + "permanent_redirect", allow_redirects=False)
@@ -29,20 +29,20 @@ class TestPermanentRedirects(object):
             headers={"cache-control": "no-cache"},
             allow_redirects=False,
         )
-        assert not resp.from_cache
+        assert not cache_hit(resp)
 
 
 class TestMultipleChoicesRedirects(object):
 
     def setup(self):
-        self.client = Client(transport=CacheControlTransport())
+        self.client = make_client()
 
     def test_multiple_choices_is_cacheable(self, url):
         self.client.get(url + "multiple_choices_redirect", allow_redirects=False)
 
         resp = self.client.get(url + "multiple_choices_redirect", allow_redirects=False)
 
-        assert resp.from_cache
+        assert cache_hit(resp)
 
     def test_bust_cache_on_redirect(self, url):
         self.client.get(url + "multiple_choices_redirect", allow_redirects=False)
@@ -53,4 +53,4 @@ class TestMultipleChoicesRedirects(object):
             allow_redirects=False,
         )
 
-        assert not resp.from_cache
+        assert not cache_hit(resp)
