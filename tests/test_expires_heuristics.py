@@ -10,25 +10,15 @@ from datetime import datetime
 
 from mock import Mock
 import httpx
-from httpx import Client, Headers
+from httpx import Headers
 
-from cachecontrol import SyncHTTPCacheTransport
 from cachecontrol.heuristics import LastModified, ExpiresAfter, OneDayCache
 from cachecontrol.heuristics import TIME_FMT
 from cachecontrol.heuristics import BaseHeuristic
 
-from .conftest import cache_hit
+from .conftest import cache_hit, make_client
 
 from pprint import pprint
-
-
-def make_client(**kwargs):
-    client = Client()
-    client._transport = SyncHTTPCacheTransport(
-        transport=client._transport,
-        **kwargs
-    )
-    return client
 
 
 class TestHeuristicWithoutWarning(object):

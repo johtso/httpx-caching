@@ -12,6 +12,7 @@ import pytest
 import cherrypy
 from httpx import Client
 from cachecontrol import SyncHTTPCacheTransport
+from cachecontrol.models import Response
 
 
 class SimpleApp(object):
@@ -160,3 +161,26 @@ def pytest_unconfigure(config):
         cherrypy.server.stop()
     except:
         pass
+
+
+def make_client(**kwargs):
+    client = Client()
+    client._transport = SyncHTTPCacheTransport(
+        transport=client._transport,
+        **kwargs
+    )
+    return client
+
+
+def raw_resp(response):
+    response.headers.pop('transfer-encoding', None)
+    # Date may straddle seconds when cached response headers get updated
+    # TODO: Should the date header really be updated?
+    response.headers.pop('date', None)
+    internal_response = Response(
+        response.status_code,
+        response.headers,
+        response.content,
+        {},
+    )
+    return internal_response

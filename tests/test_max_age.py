@@ -4,20 +4,19 @@
 
 from __future__ import print_function
 import pytest
+from freezegun import freeze_time
 
-from httpx import Client
-from cachecontrol import CacheControlTransport
 from cachecontrol.cache import DictCache
+
+from .conftest import make_client, raw_resp, cache_hit
 
 
 class NullSerializer(object):
 
-    def dumps(self, request, response, body=None):
+    def dumps(self, request, response, body):
         return response
 
     def loads(self, request, data):
-        if data and getattr(data, "chunked", False):
-            data.chunked = False
         return data
 
 
@@ -27,11 +26,7 @@ class TestMaxAge(object):
     def client(self, url):
         self.url = url
         self.cache = DictCache()
-        client = Client(
-            transport=CacheControlTransport(
-                serializer=NullSerializer()
-            )
-        )
+        client = make_client(cache=self.cache, serializer=NullSerializer())
 
         return client
 
@@ -42,30 +37,28 @@ class TestMaxAge(object):
         """
         print("first request")
         r = client.get(self.url)
-        assert self.cache.get(self.url) == r.raw
+        assert self.cache.get(self.url)
 
         print("second request")
         r = client.get(self.url, headers={"Cache-Control": "max-age=0"})
 
         # don't remove from the cache
         assert self.cache.get(self.url)
-        assert not r.from_cache
+        assert not cache_hit(r)
 
     def test_client_max_age_3600(self, client):
         """
         Verify we get a cached value when the client has a
         reasonable max-age value.
         """
-        r = client.get(self.url)
-        assert self.cache.get(self.url) == r.raw
+        with freeze_time("2012-01-14"):
+            r = client.get(self.url)
+            assert self.cache.get(self.url)
 
-        # request that we don't want a new one unless
-        r = client.get(self.url, headers={"Cache-Control": "max-age=3600"})
-        assert r.from_cache is True
+            # request that we don't want a new one unless
+            r = client.get(self.url, headers={"Cache-Control": "max-age=3600"})
+            assert cache_hit(r)
 
-        # now lets grab one that forces a new request b/c the cache
-        # has expired. To do that we'll inject a new time value.
-        resp = self.cache.get(self.url)
-        resp.headers["date"] = "Tue, 15 Nov 1994 08:12:31 GMT"
+        # now lets grab one that forces a new request b/c the cache has expired
         r = client.get(self.url)
-        assert not r.from_cache
+        assert not cache_hit(r)

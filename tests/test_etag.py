@@ -13,21 +13,7 @@ from cachecontrol import SyncHTTPCacheTransport
 from cachecontrol.cache import DictCache
 from cachecontrol.models import Response
 
-from .conftest import cache_hit
-
-
-def raw_resp(response):
-    response.headers.pop('transfer-encoding', None)
-    # Date may straddle seconds when cached response headers get updated
-    # TODO: Should the date header really be updated?
-    response.headers.pop('date', None)
-    internal_response = Response(
-        response.status_code,
-        response.headers,
-        response.content,
-        {},
-    )
-    return internal_response
+from .conftest import cache_hit, raw_resp
 
 
 def assert_in_cache(cache, url, response):
