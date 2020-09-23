@@ -9,4 +9,4 @@ def test_http11(url):
     resp = httpx.get(url)
 
     # Making sure our test server speaks HTTP/1.1
-    assert resp.raw._fp.version == 11
+    assert resp.http_version == "HTTP/1.1"

@@ -6,10 +6,11 @@ from urllib.parse import urljoin
 from pprint import pprint
 
 import pytest
-from httpx import Client
 
-from cachecontrol import CacheControlTransport
 from cachecontrol.cache import DictCache
+from cachecontrol.serialize import Serializer
+
+from .conftest import make_client, cache_hit
 
 
 class TestVary(object):
@@ -18,29 +19,26 @@ class TestVary(object):
     def client(self, url):
         self.url = urljoin(url, "/vary_accept")
         self.cache = DictCache()
-        client = Client(transport=CacheControlTransport(cache=self.cache))
+        self.serializer = Serializer()
+        client = make_client(cache=self.cache, serializer=self.serializer)
         return client
 
-    def cached_equal(self, cached, resp):
+    def assert_cached_equal(self, cached, resp):
+        print(cached, resp)
         # remove any transfer-encoding headers as they don't apply to
         # a cached value
-        if "chunked" in resp.raw.headers.get("transfer-encoding", ""):
-            resp.raw.headers.pop("transfer-encoding")
+        if "chunked" in resp.headers.get("transfer-encoding", ""):
+            resp.headers.pop("transfer-encoding")
 
-        checks = [
-            cached._fp.getvalue() == resp.content,
-            cached.headers == resp.raw.headers,
-            cached.status == resp.raw.status,
-            cached.version == resp.raw.version,
-            cached.reason == resp.raw.reason,
-            cached.strict == resp.raw.strict,
-            cached.decode_content == resp.raw.decode_content,
+        assert [
+            cached.stream._content,
+            cached.headers,
+            cached.status_code,
+        ] == [
+            resp.content,
+            resp.headers,
+            resp.status_code,
         ]
-
-        print(checks)
-        pprint(dict(cached.headers))
-        pprint(dict(resp.raw.headers))
-        return all(checks)
 
     def test_vary_example(self, client):
         """RFC 2616 13.6
@@ -57,22 +55,22 @@ class TestVary(object):
         in the Vary header are the same, it won't use the cached
         value.
         """
-        s = client._transport.controller.serializer
-        r = client.get(self.url)
-        c = s.loads(r.request, self.cache.get(self.url))
+        r = client.get(self.url, headers={'foo': 'a'})
+        c = self.serializer.loads(r.request.headers, self.cache.get(self.url))
 
         # make sure we cached it
-        assert self.cached_equal(c, r)
+        self.assert_cached_equal(c, r)
 
         # make the same request
-        resp = client.get(self.url)
-        assert self.cached_equal(c, resp)
-        assert resp.from_cache
+        resp = client.get(self.url, headers={'foo': 'b'})
+        self.assert_cached_equal(c, resp)
+        assert cache_hit(resp)
 
         # make a similar request, changing the accept header
-        resp = client.get(self.url, headers={"Accept": "text/plain, text/html"})
-        assert not self.cached_equal(c, resp)
-        assert not resp.from_cache
+        resp = client.get(self.url, headers={"Accept": "text/plain, text/html", 'foo': 'c'})
+        with pytest.raises(AssertionError):
+            self.assert_cached_equal(c, resp)
+        assert not cache_hit(resp)
 
         # Just confirming two things here:
         #

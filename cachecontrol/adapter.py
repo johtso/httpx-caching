@@ -77,6 +77,7 @@ class HTTPCacheTransport:
             cached_response = self.controller.cached_request(request_url, request_headers)
 
         # check for etags and add headers if appropriate
+        # TODO: This seems to hit the cache a second time, that shouldn't be necessary.
         new_request_headers.update(self.controller.conditional_headers(request_url, request_headers))
 
         return cached_response, new_request_headers
