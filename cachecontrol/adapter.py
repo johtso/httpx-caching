@@ -6,6 +6,7 @@ import functools
 from typing import Callable, Iterator, Tuple
 
 import httpcore
+# TODO: Would be nice if this wasn't private
 from httpcore import _types as httpcore_types
 from httpx import codes, Headers, URL
 
