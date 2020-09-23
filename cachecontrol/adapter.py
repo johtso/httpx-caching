@@ -8,6 +8,7 @@ from typing import Callable, Iterator, Tuple
 import httpcore
 # TODO: Would be nice if this wasn't private
 from httpcore import _types as httpcore_types
+import httpx
 from httpx import codes, Headers, URL
 
 from .controller import CacheController, PERMANENT_REDIRECT_STATUSES
@@ -111,7 +112,6 @@ class HTTPCacheTransport:
                 # possible response body (compliant servers will
                 # not return one, but we cannot be 100% sure) and
                 # release the connection back to the pool.
-                # TODO: Is this enough to release the connection to the pool?
                 for _ in response.stream:
                     pass
                 response.stream.close()
@@ -170,16 +170,24 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
 
         if cached_response:
             response = cached_response
+            real_request = None
             from_cache = True
         else:
             response = self.transport.request(method, url.raw, new_request_headers.raw, stream, ext)
             response = Response.from_raw(response)
+            real_request = httpx.Request(
+                method=method,
+                url=url,
+                headers=new_request_headers,
+                stream=stream,
+            )
             from_cache = False
 
         # TODO: Could still be from cache?
         response, from_cache = self.post_request(url, method, headers, response, from_cache=from_cache)
 
         response.ext['from_cache'] = from_cache
+        response.ext['real_request'] = real_request
 
         return response.to_raw()
 

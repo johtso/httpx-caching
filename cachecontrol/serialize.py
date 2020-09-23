@@ -18,13 +18,20 @@ class Serializer(object):
             ):
         # TODO: What was decode_content and strict flag caching about?
 
+        # TODO: kludge while we put unserializable requests in ext
+        ext = response.ext.copy()
+        ext.pop("real_request", None)
+
+        if isinstance(response_body, httpcore.PlainByteStream):
+            response_body = response_body._content
+
         data = {
             "response": {
                 "body": response_body,
                 "headers": response.headers.raw,
                 "status_code": response.status_code,
                 # TODO: Make sure we don't explode if there's something naughty in ext
-                "ext": response.ext,
+                "ext": ext,
             },
             "vary": {}
         }
@@ -74,6 +81,7 @@ class Serializer(object):
         """
         # Ensure that the Vary headers for the cached response match our
         # request
+        # TODO: this should not be here, no reason for request headers to be so deep in deserialization.
         for header, value in cached.get("vary", {}).items():
             if request_headers.get(header, None) != value:
                 return

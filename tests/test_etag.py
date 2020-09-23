@@ -5,9 +5,9 @@
 from urllib.parse import urljoin
 
 import pytest
-from mock import Mock, patch
+from freezegun import freeze_time
 
-from httpx import Client
+from httpx import Client, Limits, Timeout
 
 from cachecontrol import SyncHTTPCacheTransport
 from cachecontrol.cache import DictCache
@@ -17,22 +17,21 @@ from .conftest import cache_hit
 
 
 def raw_resp(response):
+    response.headers.pop('transfer-encoding', None)
+    # Date may straddle seconds when cached response headers get updated
+    # TODO: Should the date header really be updated?
+    response.headers.pop('date', None)
     internal_response = Response(
         response.status_code,
         response.headers,
-        response.stream,
-        response.ext
+        response.content,
+        {},
     )
     return internal_response
 
 
-class NullSerializer(object):
-
-    def dumps(self, request_headers, response, response_body):
-        return response
-
-    def loads(self, request_headers, data):
-        return data
+def assert_in_cache(cache, url, response):
+    assert cache.get(url) == raw_resp(response)
 
 
 class TestETag(object):
@@ -51,15 +50,11 @@ class TestETag(object):
         client._transport = SyncHTTPCacheTransport(
             transport=client._transport,
             cache=self.cache,
-            serializer=NullSerializer(),
         )
 
         yield client
 
         client.close()
-
-    def assert_response_is_in_cache(self, url, response):
-        assert self.cache.get(url) == raw_resp(response)
 
     def test_etags_get_example(self, client, server):
         """RFC 2616 14.26
@@ -88,9 +83,8 @@ class TestETag(object):
         the client can use it's current representation.
         """
         r1 = client.get(self.etag_url)
-
         # make sure we cached it
-        self.assert_response_is_in_cache(self.etag_url, r1)
+        assert self.cache.get(self.etag_url)
 
         # make the same request
         r2 = client.get(self.etag_url)
@@ -104,8 +98,9 @@ class TestETag(object):
         assert raw_resp(r3) != raw_resp(r1)
         assert not cache_hit(r3)
 
-        # Make sure we updated our cache with the new etag'd response.
-        self.assert_response_is_in_cache(self.etag_url, r3)
+        r4 = client.get(self.etag_url)
+        assert raw_resp(r4) == raw_resp(r3)
+        assert cache_hit(r4)
 
 
 class TestDisabledETags(object):
@@ -119,32 +114,30 @@ class TestDisabledETags(object):
         self.update_etag_url = urljoin(url, "/update_etag")
         self.cache = DictCache()
 
-        client = Client(
-            transport=CacheControlTransport(
-                cache=self.cache,
-                cache_etags=False,
-                serializer=NullSerializer()
-            )
+        client = Client()
+        client._transport = SyncHTTPCacheTransport(
+            transport=client._transport,
+            cache=self.cache,
         )
+
         return client
 
     def test_expired_etags_if_none_match_response(self, client):
         """Make sure an expired response that contains an ETag uses
         the If-None-Match header.
         """
-        # get our response
-        r = client.get(self.etag_url)
+        # Cache an old etag response
+        with freeze_time("2012-01-14"):
+            client.get(self.etag_url)
 
-        # expire our request by changing the date. Our test endpoint
-        # doesn't provide time base caching headers, so we add them
-        # here in order to expire the request.
-        r.headers["Date"] = "Tue, 26 Nov 2012 00:50:49 GMT"
-        self.cache.set(self.etag_url, r.raw)
+        assert self.cache.get(self.etag_url)
 
-        r = client.get(self.etag_url)
-        assert r.from_cache
-        assert "if-none-match" in r.request.headers
-        assert r.status_code == 200
+        r2 = client.get(self.etag_url)
+        assert cache_hit(r2)
+
+        real_request = r2.ext["real_request"]
+        assert "if-none-match" in real_request.headers
+        assert r2.status_code == 200
 
 
 class TestReleaseConnection(object):
@@ -156,17 +149,18 @@ class TestReleaseConnection(object):
     empty according to the HTTP spec) and release the connection.
     """
 
-    def test_not_modified_releases_connection(self, server, url, client):
-        etag_url = urljoin(url, "/etag")
-        client.get(etag_url)
+    def test_not_modified_releases_connection(self, server, url):
+        self.etag_url = urljoin(url, "/etag")
 
-        resp = Mock(status=304, headers={})
+        client = Client(
+            timeout=Timeout(1, pool=0.1),
+            limits=Limits(max_connections=1, max_keepalive_connections=1)
+        )
+        client._transport = SyncHTTPCacheTransport(
+            transport=client._transport,
+        )
 
-        # This is how the urllib3 response is created in
-        # requests.adapters
-        response_mod = "requests.adapters.HTTPResponse.from_httplib"
+        # make sure the pool doesn't time out
+        for i in range(3):
+            client.get(self.etag_url)
 
-        with patch(response_mod, Mock(return_value=resp)):
-            client.get(etag_url)
-            assert resp.read.called
-            assert resp.release_conn.called

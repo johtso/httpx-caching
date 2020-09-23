@@ -2,6 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import mock
+
+from cachecontrol.cache import DictCache
+
 from .conftest import cache_hit
 
 
@@ -36,9 +40,12 @@ class TestClientActions(object):
         client.get(url)
         assert not cache_hit(r2)
 
-    def test_close(self):
-        cache = mock.Mock(spec=DictCache)
-        client = Client(transport=SyncHTTPCacheTransport(cache))
+    def test_close(self, url, client):
+        mock_cache = mock.Mock(spec=DictCache)
+        client._transport.cache = mock_cache
+
+        # TODO: httpx does not close transport if nothing has been done with the client
+        # client.get(url)
 
         client.close()
-        assert cache.close.called
+        assert mock_cache.close.called
