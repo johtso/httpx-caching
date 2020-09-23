@@ -13,7 +13,6 @@ class TestClientActions(object):
 
     def test_get_caches(self, url, client):
         client.get(url)
-        print(client._transport.cache.data)
         r2 = client.get(url)
         assert cache_hit(r2)
 
@@ -24,21 +23,21 @@ class TestClientActions(object):
 
     def test_put_invalidates_cache(self, url, client):
         client.get(url)
-        r2 = client.put(url, data={"foo": "bar"})
-        client.get(url)
-        assert not cache_hit(r2)
+        client.put(url, data={"foo": "bar"})
+        r3 = client.get(url)
+        assert not cache_hit(r3)
 
     def test_patch_invalidates_cache(self, url, client):
         client.get(url)
-        r2 = client.patch(url, data={"foo": "bar"})
-        client.get(url)
-        assert not cache_hit(r2)
+        client.patch(url, data={"foo": "bar"})
+        r3 = client.get(url)
+        assert not cache_hit(r3)
 
     def test_delete_invalidates_cache(self, url, client):
         client.get(url)
-        r2 = client.delete(url)
-        client.get(url)
-        assert not cache_hit(r2)
+        client.delete(url)
+        r3 = client.get(url)
+        assert not cache_hit(r3)
 
     def test_close(self, url, client):
         mock_cache = mock.Mock(spec=DictCache)

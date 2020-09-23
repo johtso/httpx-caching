@@ -43,7 +43,7 @@ class HTTPCacheTransport:
     """
     Base caching Transport
     """
-    invalidating_methods = {"PUT", "PATCH", "DELETE"}
+    invalidating_methods = {b"PUT", b"PATCH", b"DELETE"}
 
     def __init__(
         self,
@@ -140,7 +140,7 @@ class HTTPCacheTransport:
                 )
 
         # See if we should invalidate the cache.
-        if request_method in self.invalidating_methods and not codes.is_error(response_status_code):
+        if request_method in self.invalidating_methods and not codes.is_error(response.status_code):
             cache_url = self.controller.cache_url(request_url)
             self.cache.delete(cache_url)
 
