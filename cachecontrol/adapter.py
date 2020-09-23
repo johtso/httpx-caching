@@ -119,9 +119,10 @@ class HTTPCacheTransport:
             # We always cache the 301 responses
             elif response.status_code in PERMANENT_REDIRECT_STATUSES:
                 self.controller.cache_response(
-                     request_url,
-                     request_headers,
-                     response
+                    request_url,
+                    request_headers,
+                    response,
+                    None
                 )
             else:
                 # Wrap the response file with a wrapper that will cache the
