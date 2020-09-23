@@ -6,14 +6,13 @@ import functools
 from typing import Callable, Iterator, Tuple
 
 import httpcore
-# TODO: Would be nice if this wasn't private
-from httpcore import _types as httpcore_types
 import httpx
 from httpx import codes, Headers, URL
 
 from .controller import CacheController, PERMANENT_REDIRECT_STATUSES
 from .cache import DictCache
 from .models import Response
+from ._types import RawURL, RawHeaders
 
 
 class SyncByteStreamWrapper(httpcore.SyncByteStream):
@@ -160,11 +159,11 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
     def request(
         self,
         method: bytes,
-        url: httpcore_types.URL,
-        headers: httpcore_types.Headers = None,
+        url: RawURL,
+        headers: RawHeaders = None,
         stream: httpcore.SyncByteStream = None,
         ext: dict = None,
-    ) -> Tuple[int, httpcore_types.Headers, httpcore.SyncByteStream, dict]:
+    ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
         url = URL(url)
         headers = Headers(headers)
 
