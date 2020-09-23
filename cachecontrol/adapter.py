@@ -185,7 +185,6 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             )
             from_cache = False
 
-        # TODO: Could still be from cache?
         response, from_cache = self.post_request(url, method, headers, response, from_cache=from_cache)
 
         response.ext['from_cache'] = from_cache
