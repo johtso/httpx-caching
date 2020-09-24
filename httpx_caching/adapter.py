@@ -84,12 +84,10 @@ class HTTPCacheTransport:
         request_method: str,
         request_headers: Headers,
         response: Response,
-        from_cache: bool,
-    ) -> Tuple[Response, bool]:
+    ) -> Optional[Response]:
 
-        cached_response = None
         # TODO: is cacheability being checked in too many places?
-        if not from_cache and self.is_cacheable_method(request_method):
+        if self.is_cacheable_method(request_method):
             # Check for any heuristics that might update headers
             # before trying to cache.
             if self.heuristic:
@@ -97,14 +95,6 @@ class HTTPCacheTransport:
 
             # apply any expiration heuristics
             if response.status_code == 304:
-                # We must have sent an ETag request. This could mean
-                # that we've been expired already or that we simply
-                # have an etag. In either case, we want to try and
-                # update the cache if that is the case.
-                cached_response = self.controller.update_cached_response(
-                    request_url, request_headers, response.headers
-                )
-
                 # We are done with the server response, read a
                 # possible response body (compliant servers will
                 # not return one, but we cannot be 100% sure) and
@@ -114,8 +104,16 @@ class HTTPCacheTransport:
                     pass
                 response.stream.close()
 
+                # We must have sent an ETag request. This could mean
+                # that we've been expired already or that we simply
+                # have an etag. In either case, we want to try and
+                # update the cache if that is the case.
+                return self.controller.update_cached_response(
+                    request_url, request_headers, response.headers
+                )
+
             # We always cache the 301 responses
-            elif response.status_code in PERMANENT_REDIRECT_STATUSES:
+            if response.status_code in PERMANENT_REDIRECT_STATUSES:
                 self.controller.cache_response(
                     request_url, request_headers, response, None
                 )
@@ -132,18 +130,7 @@ class HTTPCacheTransport:
                         response,
                     ),
                 )
-
-        # See if we should invalidate the cache.
-        if self.is_invalidating_method(request_method) and not codes.is_error(
-            response.status_code
-        ):
-            cache_url = self.controller.cache_url(request_url)
-            self.cache.delete(cache_url)
-
-        if cached_response:
-            return cached_response, True
-        else:
-            return response, from_cache
+        return None
 
     def close(self):
         self.cache.close()
@@ -161,50 +148,71 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         stream: httpcore.SyncByteStream = None,
         ext: dict = None,
     ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
+
         request = httpx.Request(
             method=method,
             url=url,
             headers=headers,
             stream=stream,
         )
+
         cached_response, new_request_headers = self.pre_request(
             request.method, request.url, request.headers
         )
 
         if cached_response:
-            response = cached_response
-            from_cache = True
-            request_made = False
-        else:
-            response = self.transport.request(
-                request.method,
-                request.url.raw,
-                new_request_headers.raw,
-                request.stream,
-                ext,
-            )
-            response = Response.from_raw(response)
-            from_cache = False
-            request_made = True
+            self.add_ext(cached_response, request, from_cache=True)
+            return cached_response.to_raw()
 
-        response, from_cache = self.post_request(
+        # Make an actual request
+        response = self.transport.request(
+            request.method,
+            request.url.raw,
+            new_request_headers.raw,
+            request.stream,
+            ext,
+        )
+        response = Response.from_raw(response)
+
+        # See if we should invalidate the cache.
+        if self.is_invalidating_method(request.method) and not codes.is_error(
+            response.status_code
+        ):
+            cache_url = self.controller.cache_url(request.url)
+            self.cache.delete(cache_url)
+
+        # Update cache with new response and maybe get a cached response (ETags)
+        cached_response = self.post_request(
             request.url,
             request.method,
             request.headers,
             response,
-            from_cache=from_cache,
         )
 
+        if cached_response:
+            from_cache = True
+            response = cached_response
+        else:
+            from_cache = False
+
+        self.add_ext(response, request, from_cache, new_request_headers)
+        return response.to_raw()
+
+    def add_ext(
+        self,
+        response: Response,
+        request: httpx.Request,
+        from_cache: bool,
+        new_request_headers: Headers = None,
+    ) -> None:
         response.ext["from_cache"] = from_cache
-        if request_made:
+        if new_request_headers:
             response.ext["real_request"] = httpx.Request(
                 method=request.method,
                 url=request.url,
                 headers=new_request_headers,
                 stream=request.stream,
             )
-
-        return response.to_raw()
 
 
 class AsyncHTTPCacheTransport(HTTPCacheTransport, httpcore.AsyncHTTPTransport):
