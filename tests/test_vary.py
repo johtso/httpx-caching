@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pprint import pprint
 from urllib.parse import urljoin
 
 import pytest
@@ -29,7 +28,7 @@ class TestVary(object):
         if "chunked" in resp.headers.get("transfer-encoding", ""):
             resp.headers.pop("transfer-encoding")
 
-        assert [cached.stream._content, cached.headers, cached.status_code,] == [
+        assert [cached.stream._content, cached.headers, cached.status_code] == [
             resp.content,
             resp.headers,
             resp.status_code,

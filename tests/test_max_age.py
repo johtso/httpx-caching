@@ -9,7 +9,7 @@ from freezegun import freeze_time
 
 from cachecontrol.cache import DictCache
 
-from .conftest import cache_hit, make_client, raw_resp
+from .conftest import cache_hit, make_client
 
 
 class NullSerializer(object):

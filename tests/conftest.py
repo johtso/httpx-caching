@@ -159,7 +159,7 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     try:
         cherrypy.server.stop()
-    except:
+    except Exception:
         pass
 
 

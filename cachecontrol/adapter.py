@@ -163,8 +163,8 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         stream: httpcore.SyncByteStream = None,
         ext: dict = None,
     ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
-        url = URL(url)
-        headers = Headers(headers)
+        url = URL(url)  # type: ignore
+        headers = Headers(headers)  # type: ignore
 
         cached_response, new_request_headers = self.pre_request(method, url, headers)
 
@@ -174,7 +174,7 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             from_cache = True
         else:
             response = self.transport.request(
-                method, url.raw, new_request_headers.raw, stream, ext
+                method, url.raw, new_request_headers.raw, stream, ext  # type: ignore
             )
             response = Response.from_raw(response)
             real_request = httpx.Request(

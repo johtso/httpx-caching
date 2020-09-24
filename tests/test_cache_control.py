@@ -12,8 +12,8 @@ import pytest
 from httpx import Headers
 from mock import ANY, Mock
 
-from cachecontrol import CacheController
 from cachecontrol.cache import DictCache
+from cachecontrol.controller import CacheController
 from cachecontrol.models import Response
 
 TIME_FMT = "%a, %d %b %Y %H:%M:%S GMT"
@@ -136,7 +136,7 @@ class TestCacheControllerResponse(object):
         # skip our in/out processing
         cc.serializer = Mock()
         cc.serializer.loads.return_value = cached_resp
-        cc.cache_url = Mock(return_value="http://foo.com")
+        cc.cache_url = Mock(return_value="http://foo.com")  # type: ignore
 
         result = cc.update_cached_response(self.url, Mock(), resp_headers)
 

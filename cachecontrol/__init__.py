@@ -4,4 +4,7 @@ Make it easy to import from cachecontrol without long namespaces.
 """
 
 from .adapter import SyncHTTPCacheTransport
-from .controller import CacheController
+
+__all__ = [
+    "SyncHTTPCacheTransport",
+]

@@ -5,8 +5,6 @@
 """
 Test for supporting redirect caches as needed.
 """
-import httpx
-
 from .conftest import cache_hit, make_client
 
 

@@ -12,8 +12,13 @@ import httpx
 from httpx import Headers
 from mock import Mock
 
-from cachecontrol.heuristics import (TIME_FMT, BaseHeuristic, ExpiresAfter,
-                                     LastModified, OneDayCache)
+from cachecontrol.heuristics import (
+    TIME_FMT,
+    BaseHeuristic,
+    ExpiresAfter,
+    LastModified,
+    OneDayCache,
+)
 
 from .conftest import cache_hit, make_client
 
@@ -31,7 +36,7 @@ class TestHeuristicWithoutWarning(object):
 
     def test_no_header_change_means_no_warning_header(self, url):
         the_url = url + "optional_cacheable_request"
-        resp = self.client.get(the_url)
+        self.client.get(the_url)
 
         assert not self.heuristic.warning.called
 
@@ -142,7 +147,7 @@ class TestModifiedUnitTests(object):
         headers = {"Date": self.now, "Last-Modified": self.week_ago}
         modified = self.heuristic.update_headers(Headers(headers), 200)
         assert ["expires"] == list(modified.keys())
-        assert datetime(*parsedate(modified["expires"])[:6]) > datetime.now()
+        assert datetime(*parsedate(modified["expires"])[:6]) > datetime.now()  # type: ignore
 
     def test_last_modified_is_not_used_when_cache_control_present(self):
         headers = {
@@ -166,7 +171,7 @@ class TestModifiedUnitTests(object):
         }
         modified = self.heuristic.update_headers(Headers(headers), 200)
         assert ["expires"] == list(modified.keys())
-        assert datetime(*parsedate(modified["expires"])[:6]) > datetime.now()
+        assert datetime(*parsedate(modified["expires"])[:6]) > datetime.now()  # type: ignore
 
     def test_expiry_is_no_more_than_twenty_four_hours(self):
         headers = {"Date": self.now, "Last-Modified": self.year_ago}

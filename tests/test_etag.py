@@ -10,7 +10,6 @@ from httpx import Client, Limits, Timeout
 
 from cachecontrol import SyncHTTPCacheTransport
 from cachecontrol.cache import DictCache
-from cachecontrol.models import Response
 
 from .conftest import cache_hit, raw_resp
 
@@ -146,5 +145,5 @@ class TestReleaseConnection(object):
         )
 
         # make sure the pool doesn't time out
-        for i in range(3):
+        for _i in range(3):
             client.get(self.etag_url)

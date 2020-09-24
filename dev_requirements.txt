@@ -1,11 +1,14 @@
 -r requirements.txt
 
 pytest
+pytest-cov
 mock
 cherrypy
 freezegun
 autoflake
 black
+isort
 autoflake
 flake8
 flake8-bugbear
+mypy
