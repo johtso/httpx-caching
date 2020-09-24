@@ -4,11 +4,11 @@ export PREFIX=""
 if [ -d 'venv' ] ; then
     export PREFIX="venv/bin/"
 fi
-export SOURCE_FILES="cachecontrol tests"
+export SOURCE_FILES="httpx_caching tests"
 
 set -x
 
 ${PREFIX}black --check --diff --target-version=py36 $SOURCE_FILES
 ${PREFIX}flake8 $SOURCE_FILES
 ${PREFIX}mypy $SOURCE_FILES
-${PREFIX}isort --check --diff --project=cachecontrol $SOURCE_FILES
+${PREFIX}isort --check --diff --project=httpx_caching $SOURCE_FILES

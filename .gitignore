@@ -24,3 +24,4 @@ htmlcov/
 site/
 venv*/
 .python-version
+htmlcov/

@@ -6,8 +6,8 @@ from urllib.parse import urljoin
 
 import pytest
 
-from cachecontrol.cache import DictCache
-from cachecontrol.serialize import Serializer
+from httpx_caching.cache import DictCache
+from httpx_caching.serialize import Serializer
 
 from .conftest import cache_hit, make_client
 

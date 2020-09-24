@@ -4,7 +4,7 @@
 
 import mock
 
-from cachecontrol.cache import DictCache
+from httpx_caching.cache import DictCache
 
 from .conftest import cache_hit
 

@@ -12,7 +12,7 @@ import httpx
 from httpx import Headers
 from mock import Mock
 
-from cachecontrol.heuristics import (
+from httpx_caching.heuristics import (
     TIME_FMT,
     BaseHeuristic,
     ExpiresAfter,

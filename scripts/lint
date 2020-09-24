@@ -4,10 +4,10 @@ export PREFIX=""
 if [ -d 'venv' ] ; then
     export PREFIX="venv/bin/"
 fi
-export SOURCE_FILES="cachecontrol tests"
+export SOURCE_FILES="httpx_caching tests"
 
 set -x
 
 ${PREFIX}autoflake --in-place --recursive $SOURCE_FILES
-${PREFIX}isort --project=cachecontrol $SOURCE_FILES
+${PREFIX}isort --project=httpx_caching $SOURCE_FILES
 ${PREFIX}black --target-version=py36 $SOURCE_FILES

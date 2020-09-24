@@ -8,8 +8,8 @@ import pytest
 from freezegun import freeze_time
 from httpx import Client, Limits, Timeout
 
-from cachecontrol import SyncHTTPCacheTransport
-from cachecontrol.cache import DictCache
+from httpx_caching import SyncHTTPCacheTransport
+from httpx_caching.cache import DictCache
 
 from .conftest import cache_hit, raw_resp
 

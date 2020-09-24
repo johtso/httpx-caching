@@ -10,8 +10,8 @@ import cherrypy
 import pytest
 from httpx import Client
 
-from cachecontrol import SyncHTTPCacheTransport
-from cachecontrol.models import Response
+from httpx_caching import SyncHTTPCacheTransport
+from httpx_caching.models import Response
 
 
 class SimpleApp(object):

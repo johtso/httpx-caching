@@ -7,7 +7,7 @@ from __future__ import print_function
 import pytest
 from freezegun import freeze_time
 
-from cachecontrol.cache import DictCache
+from httpx_caching.cache import DictCache
 
 from .conftest import cache_hit, make_client
 

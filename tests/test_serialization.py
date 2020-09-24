@@ -6,8 +6,8 @@ import httpx
 import msgpack
 from mock import Mock
 
-from cachecontrol.models import Response
-from cachecontrol.serialize import Serializer
+from httpx_caching.models import Response
+from httpx_caching.serialize import Serializer
 
 
 class TestSerializer(object):
