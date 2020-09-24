@@ -3,3 +3,4 @@
 pytest
 mock
 cherrypy
+freezegun
