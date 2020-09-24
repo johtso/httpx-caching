@@ -173,8 +173,8 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
 
         if cached_response:
             response = cached_response
-            real_request = None
             from_cache = True
+            request_made = False
         else:
             response = self.transport.request(
                 request.method,
@@ -184,13 +184,8 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
                 ext,
             )
             response = Response.from_raw(response)
-            real_request = httpx.Request(
-                method=request.method,
-                url=request.url,
-                headers=new_request_headers,
-                stream=request.stream,
-            )
             from_cache = False
+            request_made = True
 
         response, from_cache = self.post_request(
             request.url,
@@ -201,7 +196,13 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         )
 
         response.ext["from_cache"] = from_cache
-        response.ext["real_request"] = real_request
+        if request_made:
+            response.ext["real_request"] = httpx.Request(
+                method=request.method,
+                url=request.url,
+                headers=new_request_headers,
+                stream=request.stream,
+            )
 
         return response.to_raw()
 
