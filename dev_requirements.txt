@@ -4,3 +4,8 @@ pytest
 mock
 cherrypy
 freezegun
+autoflake
+black
+autoflake
+flake8
+flake8-bugbear
