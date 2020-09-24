@@ -5,14 +5,13 @@
 """
 The httplib2 algorithms ported for use with requests.
 """
-import logging
 import calendar
+import logging
 import time
 from email.utils import parsedate_tz
 
 from .cache import DictCache
 from .serialize import Serializer
-
 
 logger = logging.getLogger(__name__)
 

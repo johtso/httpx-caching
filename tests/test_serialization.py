@@ -2,13 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import msgpack
 import httpx
-
+import msgpack
 from mock import Mock
 
-from cachecontrol.serialize import Serializer
 from cachecontrol.models import Response
+from cachecontrol.serialize import Serializer
 
 
 class TestSerializer(object):

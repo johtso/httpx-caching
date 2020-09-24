@@ -5,17 +5,16 @@
 """
 Unit tests that verify our caching methods work correctly.
 """
-import pytest
-from mock import ANY, Mock
 import time
 
 import httpcore
+import pytest
 from httpx import Headers
+from mock import ANY, Mock
 
 from cachecontrol import CacheController
 from cachecontrol.cache import DictCache
 from cachecontrol.models import Response
-
 
 TIME_FMT = "%a, %d %b %Y %H:%M:%S GMT"
 

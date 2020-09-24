@@ -2,15 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pprint import pformat
-
 import os
 import socket
-
-import pytest
+from pprint import pformat
 
 import cherrypy
+import pytest
 from httpx import Client
+
 from cachecontrol import SyncHTTPCacheTransport
 from cachecontrol.models import Response
 

@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import print_function
+
 import pytest
 from freezegun import freeze_time
 
 from cachecontrol.cache import DictCache
 
-from .conftest import make_client, raw_resp, cache_hit
+from .conftest import cache_hit, make_client, raw_resp
 
 
 class NullSerializer(object):

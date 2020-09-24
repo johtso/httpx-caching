@@ -4,21 +4,18 @@
 
 import calendar
 import time
-
-from email.utils import formatdate, parsedate
 from datetime import datetime
+from email.utils import formatdate, parsedate
+from pprint import pprint
 
-from mock import Mock
 import httpx
 from httpx import Headers
+from mock import Mock
 
-from cachecontrol.heuristics import LastModified, ExpiresAfter, OneDayCache
-from cachecontrol.heuristics import TIME_FMT
-from cachecontrol.heuristics import BaseHeuristic
+from cachecontrol.heuristics import (TIME_FMT, BaseHeuristic, ExpiresAfter,
+                                     LastModified, OneDayCache)
 
 from .conftest import cache_hit, make_client
-
-from pprint import pprint
 
 
 class TestHeuristicWithoutWarning(object):

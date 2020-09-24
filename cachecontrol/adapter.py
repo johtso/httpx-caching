@@ -7,12 +7,12 @@ from typing import Callable, Iterator, Tuple
 
 import httpcore
 import httpx
-from httpx import codes, Headers, URL
+from httpx import URL, Headers, codes
 
-from .controller import CacheController, PERMANENT_REDIRECT_STATUSES
+from ._types import RawHeaders, RawURL
 from .cache import DictCache
+from .controller import PERMANENT_REDIRECT_STATUSES, CacheController
 from .models import Response
-from ._types import RawURL, RawHeaders
 
 
 class SyncByteStreamWrapper(httpcore.SyncByteStream):

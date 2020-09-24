@@ -6,7 +6,6 @@ from urllib.parse import urljoin
 
 import pytest
 from freezegun import freeze_time
-
 from httpx import Client, Limits, Timeout
 
 from cachecontrol import SyncHTTPCacheTransport

@@ -2,15 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from urllib.parse import urljoin
 from pprint import pprint
+from urllib.parse import urljoin
 
 import pytest
 
 from cachecontrol.cache import DictCache
 from cachecontrol.serialize import Serializer
 
-from .conftest import make_client, cache_hit
+from .conftest import cache_hit, make_client
 
 
 class TestVary(object):

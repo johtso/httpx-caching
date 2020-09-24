@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import msgpack
 import httpcore
+import msgpack
 
 from .models import Response
 

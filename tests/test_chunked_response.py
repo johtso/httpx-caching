@@ -6,8 +6,9 @@ Test for supporting streamed responses (Transfer-Encoding: chunked)
 """
 from __future__ import print_function, unicode_literals
 
-from .conftest import cache_hit
 import pytest
+
+from .conftest import cache_hit
 
 
 class TestChunkedResponses(object):
