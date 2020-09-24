@@ -9,7 +9,7 @@ import time
 
 import httpcore
 import pytest
-from httpx import Headers
+from httpx import URL, Headers
 from mock import ANY, Mock
 
 from httpx_caching.cache import DictCache
@@ -145,7 +145,7 @@ class TestCacheControllerResponse(object):
 
 
 class TestCacheControlRequest(object):
-    url = "http://foo.com/bar"
+    url = URL("http://foo.com/bar")
 
     def setup(self):
         self.c = CacheController(DictCache(), serializer=NullSerializer())

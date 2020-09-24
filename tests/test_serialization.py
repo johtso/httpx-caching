@@ -35,6 +35,6 @@ class TestSerializer(object):
     def test_dumps(self):
         assert self.serializer.dumps(
             httpx.Headers({"vary": "foo"}),
-            Response(200, httpx.Headers(), "foo", {}),
+            Response.from_raw((200, {}, b"foo", {})),
             "foo",
         )

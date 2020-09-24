@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
-from typing import Tuple
+from typing import Optional, Tuple
 
 import httpcore
 import httpx
@@ -21,7 +21,7 @@ class HTTPCacheTransport:
     Base caching Transport
     """
 
-    invalidating_methods = {b"PUT", b"PATCH", b"DELETE"}
+    invalidating_methods = {"PUT", "PATCH", "DELETE"}
 
     def __init__(
         self,
@@ -35,7 +35,7 @@ class HTTPCacheTransport:
     ):
         self.cache = DictCache() if cache is None else cache
         self.heuristic = heuristic
-        self.cacheable_methods = cacheable_methods or (b"GET",)
+        self.cacheable_methods = cacheable_methods or ("GET",)
 
         controller_factory = controller_class or CacheController
         self.controller = controller_factory(
@@ -45,13 +45,27 @@ class HTTPCacheTransport:
             raise ValueError("You must provide a Transport.")
         self.transport = transport
 
-    def pre_request(self, request_method, request_url, request_headers):
-        # TODO: CacheControl allowed passing cacheable_methods as part of the request?
+    def is_cacheable_method(self, method: str):
+        return method in self.cacheable_methods
 
+    def is_invalidating_method(self, method: str):
+        return method in self.invalidating_methods
+
+    def pre_request(
+        self,
+        request_method: str,
+        request_url: URL,
+        request_headers: Headers,
+    ) -> Tuple[Optional[Response], Headers]:
+        """
+        Returns a potentially valid cached Response.
+        """
+
+        # TODO: CacheControl allowed passing cacheable_methods as part of the request?
         cached_response = None
         new_request_headers = request_headers.copy()
 
-        if request_method in self.cacheable_methods:
+        if self.is_cacheable_method(request_method):
             cached_response = self.controller.cached_request(
                 request_url, request_headers
             )
@@ -65,12 +79,17 @@ class HTTPCacheTransport:
         return cached_response, new_request_headers
 
     def post_request(
-        self, request_url, request_method, request_headers, response, from_cache
-    ):
+        self,
+        request_url: URL,
+        request_method: str,
+        request_headers: Headers,
+        response: Response,
+        from_cache: bool,
+    ) -> Tuple[Response, bool]:
 
         cached_response = None
         # TODO: is cacheability being checked in too many places?
-        if not from_cache and request_method in self.cacheable_methods:
+        if not from_cache and self.is_cacheable_method(request_method):
             # Check for any heuristics that might update headers
             # before trying to cache.
             if self.heuristic:
@@ -90,6 +109,7 @@ class HTTPCacheTransport:
                 # possible response body (compliant servers will
                 # not return one, but we cannot be 100% sure) and
                 # release the connection back to the pool.
+                # TODO: This wont work for Async!
                 for _ in response.stream:
                     pass
                 response.stream.close()
@@ -114,7 +134,7 @@ class HTTPCacheTransport:
                 )
 
         # See if we should invalidate the cache.
-        if request_method in self.invalidating_methods and not codes.is_error(
+        if self.is_invalidating_method(request_method) and not codes.is_error(
             response.status_code
         ):
             cache_url = self.controller.cache_url(request_url)
@@ -141,10 +161,15 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         stream: httpcore.SyncByteStream = None,
         ext: dict = None,
     ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
-        url = URL(url)  # type: ignore
-        headers = Headers(headers)  # type: ignore
-
-        cached_response, new_request_headers = self.pre_request(method, url, headers)
+        request = httpx.Request(
+            method=method,
+            url=url,
+            headers=headers,
+            stream=stream,
+        )
+        cached_response, new_request_headers = self.pre_request(
+            request.method, request.url, request.headers
+        )
 
         if cached_response:
             response = cached_response
@@ -152,19 +177,27 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             from_cache = True
         else:
             response = self.transport.request(
-                method, url.raw, new_request_headers.raw, stream, ext  # type: ignore
+                request.method,
+                request.url.raw,
+                new_request_headers.raw,
+                request.stream,
+                ext,
             )
             response = Response.from_raw(response)
             real_request = httpx.Request(
-                method=method,
-                url=url,
+                method=request.method,
+                url=request.url,
                 headers=new_request_headers,
-                stream=stream,
+                stream=request.stream,
             )
             from_cache = False
 
         response, from_cache = self.post_request(
-            url, method, headers, response, from_cache=from_cache
+            request.url,
+            request.method,
+            request.headers,
+            response,
+            from_cache=from_cache,
         )
 
         response.ext["from_cache"] = from_cache

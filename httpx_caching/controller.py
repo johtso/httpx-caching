@@ -9,8 +9,12 @@ import calendar
 import logging
 import time
 from email.utils import parsedate_tz
+from typing import Optional
+
+from httpx import URL, Headers
 
 from .cache import DictCache
+from .models import Response
 from .serialize import Serializer
 
 logger = logging.getLogger(__name__)
@@ -87,10 +91,13 @@ class CacheController(object):
 
         return retval
 
-    def cached_request(self, request_url, request_headers):
+    def cached_request(
+        self,
+        request_url: URL,
+        request_headers: Headers,
+    ) -> Optional[Response]:
         """
-        Return a cached response if it exists in the cache, otherwise
-        return False.
+        Return a cached response if it exists in the cache.
         """
         cache_url = self.cache_url(request_url)
         logger.debug('Looking up "%s" in the cache', cache_url)
@@ -99,24 +106,24 @@ class CacheController(object):
         # Bail out if the request insists on fresh data
         if "no-cache" in cc:
             logger.debug('Request header has "no-cache", cache bypassed')
-            return False
+            return None
 
         if "max-age" in cc and cc["max-age"] == 0:
             logger.debug('Request header has "max_age" as 0, cache bypassed')
-            return False
+            return None
 
         # Request allows serving from the cache, let's see if we find something
         cache_data = self.cache.get(cache_url)
         if cache_data is None:
             logger.debug("No cache entry available")
-            return False
+            return None
 
         # Check whether it can be deserialized
         response = self.serializer.loads(request_headers, cache_data)
 
         if not response:
             logger.warning("Cache entry deserialization failed, entry ignored")
-            return False
+            return None
 
         # If we have a cached permanent redirect, return it immediately. We
         # don't need to test our response for other headers b/c it is
@@ -142,10 +149,11 @@ class CacheController(object):
                 logger.debug("Purging cached response: no date or etag")
                 self.cache.delete(cache_url)
             logger.debug("Ignoring cached response: no date")
-            return False
+            return None
 
         now = time.time()
-        date = calendar.timegm(parsedate_tz(response.headers["date"]))
+        # TODO: parsedate_tz might return None (no date value or malformed)
+        date = calendar.timegm(parsedate_tz(response.headers["date"]))  # type: ignore
         current_age = max(0, now - date)
         logger.debug("Current age based on date: %i", current_age)
 
@@ -163,7 +171,7 @@ class CacheController(object):
         elif "expires" in response.headers:
             expires = parsedate_tz(response.headers["expires"])
             if expires is not None:
-                expire_time = calendar.timegm(expires) - date
+                expire_time = calendar.timegm(expires) - date  # type: ignore
                 freshness_lifetime = max(0, expire_time)
                 logger.debug("Freshness lifetime from expires: %i", freshness_lifetime)
 
@@ -193,7 +201,7 @@ class CacheController(object):
             self.cache.delete(cache_url)
 
         # return the original handler
-        return False
+        return None
 
     def conditional_headers(self, request_url, request_headers):
         cache_url = self.cache_url(request_url)
