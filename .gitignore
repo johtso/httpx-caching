@@ -16,3 +16,11 @@ docs/_build
 build/
 .tox
 .idea/
+.coverage
+.pytest_cache/
+.mypy_cache/
+__pycache__/
+htmlcov/
+site/
+venv*/
+.python-version
