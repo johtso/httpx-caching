@@ -21,7 +21,6 @@ TIME_FMT = "%a, %d %b %Y %H:%M:%S GMT"
 
 
 class NullSerializer(object):
-
     def dumps(self, request, response):
         return response
 
@@ -34,12 +33,7 @@ class TestCacheControllerResponse(object):
 
     def resp(self, headers=None):
         headers = headers or {}
-        return Response(
-            200,
-            Headers(headers),
-            httpcore.PlainByteStream(b"testing"),
-            {}
-        )
+        return Response(200, Headers(headers), httpcore.PlainByteStream(b"testing"), {})
 
     @pytest.fixture()
     def cc(self):
@@ -129,7 +123,9 @@ class TestCacheControllerResponse(object):
         assert not cc.cache.set.called
 
     def test_update_cached_response_with_valid_headers(self):
-        cached_resp = Mock(headers=Headers({"ETag": "jfd9094r808", "Content-Length": "100"}))
+        cached_resp = Mock(
+            headers=Headers({"ETag": "jfd9094r808", "Content-Length": "100"})
+        )
 
         # Set our content length to 200. That would be a mistake in
         # the server, but we'll handle it gracefully... for now.
@@ -159,7 +155,9 @@ class TestCacheControlRequest(object):
         return self.c.cached_request(self.url, Headers(headers))
 
     def test_cache_request_no_headers(self):
-        cached_resp = Mock(headers={"ETag": "jfd9094r808", "Content-Length": 100}, status=200)
+        cached_resp = Mock(
+            headers={"ETag": "jfd9094r808", "Content-Length": 100}, status=200
+        )
         self.c.cache = DictCache({self.url: cached_resp})
         resp = self.req({})
         assert not resp

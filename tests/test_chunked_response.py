@@ -11,7 +11,6 @@ import pytest
 
 
 class TestChunkedResponses(object):
-
     def test_cache_chunked_response(self, url, client):
         """
         Verify that an otherwise cacheable response is cached when the

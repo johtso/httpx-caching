@@ -140,7 +140,7 @@ class TestReleaseConnection(object):
 
         client = Client(
             timeout=Timeout(1, pool=0.1),
-            limits=Limits(max_connections=1, max_keepalive_connections=1)
+            limits=Limits(max_connections=1, max_keepalive_connections=1),
         )
         client._transport = SyncHTTPCacheTransport(
             transport=client._transport,
@@ -149,4 +149,3 @@ class TestReleaseConnection(object):
         # make sure the pool doesn't time out
         for i in range(3):
             client.get(self.etag_url)
-

@@ -3,11 +3,13 @@ from typing import Iterable
 
 from httpx import Headers
 
+
 @dataclasses.dataclass
 class Response:
     """
     Simple wrapper for the raw response returned by a transport.
     """
+
     status_code: int
     headers: Headers
     stream: Iterable
@@ -23,7 +25,7 @@ class Response:
         raw = []
         for field in dataclasses.fields(self):
             value = getattr(self, field.name)
-            if field.name == 'headers':
+            if field.name == "headers":
                 value = value.raw
             raw.append(value)
         return tuple(raw)

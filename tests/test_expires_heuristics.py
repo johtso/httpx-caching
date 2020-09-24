@@ -22,9 +22,7 @@ from pprint import pprint
 
 
 class TestHeuristicWithoutWarning(object):
-
     def setup(self):
-
         class NoopHeuristic(BaseHeuristic):
             warning = Mock()
 
@@ -42,11 +40,8 @@ class TestHeuristicWithoutWarning(object):
 
 
 class TestHeuristicWith3xxResponse(object):
-
     def setup(self):
-
         class DummyHeuristic(BaseHeuristic):
-
             def update_headers(self, resp_headers, resp_status):
                 return {"x-dummy-header": "foobar"}
 
@@ -64,7 +59,6 @@ class TestHeuristicWith3xxResponse(object):
 
 
 class TestOneDayCache(object):
-
     def setup(self):
         self.client = make_client(heuristic=OneDayCache())
 
@@ -83,7 +77,6 @@ class TestOneDayCache(object):
 
 
 class TestExpiresAfter(object):
-
     def setup(self):
         self.client = make_client(heuristic=ExpiresAfter(days=1))
 
@@ -103,7 +96,6 @@ class TestExpiresAfter(object):
 
 
 class TestLastModified(object):
-
     def setup(self):
         self.client = make_client(heuristic=LastModified())
 
@@ -126,7 +118,6 @@ def datetime_to_header(dt):
 
 
 class TestModifiedUnitTests(object):
-
     def last_modified(self, period):
         return time.strftime(TIME_FMT, time.gmtime(self.time_now - period))
 

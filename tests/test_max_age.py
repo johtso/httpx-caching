@@ -12,7 +12,6 @@ from .conftest import make_client, raw_resp, cache_hit
 
 
 class NullSerializer(object):
-
     def dumps(self, request, response, body):
         return response
 
@@ -21,7 +20,6 @@ class NullSerializer(object):
 
 
 class TestMaxAge(object):
-
     @pytest.fixture()
     def client(self, url):
         self.url = url

@@ -42,6 +42,7 @@ class HTTPCacheTransport:
     """
     Base caching Transport
     """
+
     invalidating_methods = {b"PUT", b"PATCH", b"DELETE"}
 
     def __init__(
@@ -63,7 +64,7 @@ class HTTPCacheTransport:
             self.cache, cache_etags=cache_etags, serializer=serializer
         )
         if not transport:
-            raise ValueError('You must provide a Transport.')
+            raise ValueError("You must provide a Transport.")
         self.transport = transport
 
     def pre_request(self, request_method, request_url, request_headers):
@@ -73,22 +74,21 @@ class HTTPCacheTransport:
         new_request_headers = request_headers.copy()
 
         if request_method in self.cacheable_methods:
-            cached_response = self.controller.cached_request(request_url, request_headers)
+            cached_response = self.controller.cached_request(
+                request_url, request_headers
+            )
 
         # check for etags and add headers if appropriate
         # TODO: This seems to hit the cache a second time, that shouldn't be necessary.
-        new_request_headers.update(self.controller.conditional_headers(request_url, request_headers))
+        new_request_headers.update(
+            self.controller.conditional_headers(request_url, request_headers)
+        )
 
         return cached_response, new_request_headers
 
     def post_request(
-        self,
-        request_url,
-        request_method,
-        request_headers,
-        response,
-        from_cache
-            ):
+        self, request_url, request_method, request_headers, response, from_cache
+    ):
 
         cached_response = None
         # TODO: is cacheability being checked in too many places?
@@ -119,10 +119,7 @@ class HTTPCacheTransport:
             # We always cache the 301 responses
             elif response.status_code in PERMANENT_REDIRECT_STATUSES:
                 self.controller.cache_response(
-                    request_url,
-                    request_headers,
-                    response,
-                    None
+                    request_url, request_headers, response, None
                 )
             else:
                 # Wrap the response file with a wrapper that will cache the
@@ -134,12 +131,14 @@ class HTTPCacheTransport:
                         self.controller.cache_response,
                         request_url,
                         request_headers,
-                        response
+                        response,
                     ),
                 )
 
         # See if we should invalidate the cache.
-        if request_method in self.invalidating_methods and not codes.is_error(response.status_code):
+        if request_method in self.invalidating_methods and not codes.is_error(
+            response.status_code
+        ):
             cache_url = self.controller.cache_url(request_url)
             self.cache.delete(cache_url)
 
@@ -174,7 +173,9 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             real_request = None
             from_cache = True
         else:
-            response = self.transport.request(method, url.raw, new_request_headers.raw, stream, ext)
+            response = self.transport.request(
+                method, url.raw, new_request_headers.raw, stream, ext
+            )
             response = Response.from_raw(response)
             real_request = httpx.Request(
                 method=method,
@@ -184,10 +185,12 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             )
             from_cache = False
 
-        response, from_cache = self.post_request(url, method, headers, response, from_cache=from_cache)
+        response, from_cache = self.post_request(
+            url, method, headers, response, from_cache=from_cache
+        )
 
-        response.ext['from_cache'] = from_cache
-        response.ext['real_request'] = real_request
+        response.ext["from_cache"] = from_cache
+        response.ext["real_request"] = real_request
 
         return response.to_raw()
 

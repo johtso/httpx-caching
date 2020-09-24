@@ -11,7 +11,6 @@ from .conftest import make_client, cache_hit
 
 
 class TestPermanentRedirects(object):
-
     def setup(self):
         self.client = make_client()
 
@@ -33,7 +32,6 @@ class TestPermanentRedirects(object):
 
 
 class TestMultipleChoicesRedirects(object):
-
     def setup(self):
         self.client = make_client()
 

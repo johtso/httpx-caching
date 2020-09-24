@@ -9,13 +9,7 @@ from .models import Response
 
 
 class Serializer(object):
-
-    def dumps(
-            self,
-            request_headers,
-            response,
-            response_body
-            ):
+    def dumps(self, request_headers, response, response_body):
         # TODO: kludge while we put unserializable requests in ext
         ext = response.ext.copy()
         ext.pop("real_request", None)
@@ -31,7 +25,7 @@ class Serializer(object):
                 # TODO: Make sure we don't explode if there's something naughty in ext
                 "ext": ext,
             },
-            "vary": {}
+            "vary": {},
         }
 
         # Construct our vary headers
@@ -75,8 +69,7 @@ class Serializer(object):
             return
 
     def prepare_response(self, request_headers, cached):
-        """Verify our vary headers match and return response values.
-        """
+        """Verify our vary headers match and return response values."""
         # Ensure that the Vary headers for the cached response match our
         # request
         # TODO: this should not be here, no reason for request headers to be so deep in deserialization.

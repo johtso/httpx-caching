@@ -16,7 +16,6 @@ from cachecontrol.models import Response
 
 
 class SimpleApp(object):
-
     def __init__(self):
         self.etag_count = 0
         self.update_etag_string()
@@ -114,12 +113,13 @@ class SimpleApp(object):
 
 
 def cache_hit(resp):
-    return resp.ext['from_cache']
+    return resp.ext["from_cache"]
 
 
 @pytest.fixture(scope="session")
 def server():
     return cherrypy.server
+
 
 @pytest.fixture()
 def client():
@@ -127,6 +127,7 @@ def client():
     client._transport = SyncHTTPCacheTransport(transport=client._transport)
     yield client
     client.close()
+
 
 @pytest.fixture()
 def url(server):
@@ -165,18 +166,15 @@ def pytest_unconfigure(config):
 
 def make_client(**kwargs):
     client = Client()
-    client._transport = SyncHTTPCacheTransport(
-        transport=client._transport,
-        **kwargs
-    )
+    client._transport = SyncHTTPCacheTransport(transport=client._transport, **kwargs)
     return client
 
 
 def raw_resp(response):
-    response.headers.pop('transfer-encoding', None)
+    response.headers.pop("transfer-encoding", None)
     # Date may straddle seconds when cached response headers get updated
     # TODO: Should the date header really be updated?
-    response.headers.pop('date', None)
+    response.headers.pop("date", None)
     internal_response = Response(
         response.status_code,
         response.headers,

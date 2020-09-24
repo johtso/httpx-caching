@@ -10,7 +10,6 @@ from .conftest import cache_hit
 
 
 class TestClientActions(object):
-
     def test_get_caches(self, url, client):
         client.get(url)
         r2 = client.get(url)

@@ -12,21 +12,20 @@ from cachecontrol.models import Response
 
 
 class TestSerializer(object):
-
     def setup(self):
         self.serializer = Serializer()
         self.response_data = {
             "response": {
                 "body": "Hello World",
                 "headers": {
-                    u"Content-Type": u"text/plain",
-                    u"Expires": u"87654",
-                    u"Cache-Control": u"public",
+                    "Content-Type": "text/plain",
+                    "Expires": "87654",
+                    "Cache-Control": "public",
                 },
                 "status_code": 200,
                 "ext": {},
             },
-            "vary": {}
+            "vary": {},
         }
 
     def test_read_version_v0(self):
@@ -37,8 +36,6 @@ class TestSerializer(object):
     def test_dumps(self):
         assert self.serializer.dumps(
             httpx.Headers({"vary": "foo"}),
-            Response(
-                200, httpx.Headers(), "foo", {}
-            ),
-            "foo"
+            Response(200, httpx.Headers(), "foo", {}),
+            "foo",
         )

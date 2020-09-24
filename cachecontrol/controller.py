@@ -20,8 +20,7 @@ PERMANENT_REDIRECT_STATUSES = (301, 308)
 
 
 class CacheController(object):
-    """An interface to see if request should cached or not.
-    """
+    """An interface to see if request should cached or not."""
 
     def __init__(
         self, cache=None, cache_etags=True, serializer=None, status_codes=None
@@ -131,7 +130,7 @@ class CacheController(object):
         # with cache busting headers as usual (ie no-cache).
         if response.status_code in PERMANENT_REDIRECT_STATUSES:
             msg = (
-                'Returning cached permanent redirect response '
+                "Returning cached permanent redirect response "
                 "(ignoring date and etag information)"
             )
             logger.debug(msg)
@@ -211,13 +210,7 @@ class CacheController(object):
 
         return new_headers
 
-    def cache_response(
-            self,
-            request_url,
-            request_headers,
-            response,
-            response_body
-            ):
+    def cache_response(self, request_url, request_headers, response, response_body):
         """
         Algorithm for caching requests.
         """
@@ -225,7 +218,9 @@ class CacheController(object):
         #                handle byte range requests
         if response.status_code not in self.cacheable_status_codes:
             logger.debug(
-                "Status code %s not in %s", response.status_code, self.cacheable_status_codes
+                "Status code %s not in %s",
+                response.status_code,
+                self.cacheable_status_codes,
             )
             return
 
@@ -278,7 +273,7 @@ class CacheController(object):
         # that the Date headers.
         elif int(response.status_code) in PERMANENT_REDIRECT_STATUSES:
             logger.debug("Caching permanent redirect")
-            response_body = b''
+            response_body = b""
 
         # Add to the cache if the response headers demand it. If there
         # is no date header then we can't do anything about expiring
@@ -299,11 +294,7 @@ class CacheController(object):
             return
 
         self.cache.set(
-            cache_url, self.serializer.dumps(
-                request_headers,
-                response,
-                response_body
-            )
+            cache_url, self.serializer.dumps(request_headers, response, response_body)
         )
 
     def update_cached_response(self, request_url, request_headers, response_headers):
@@ -315,7 +306,9 @@ class CacheController(object):
         """
         cache_url = self.cache_url(request_url)
 
-        cached_response = self.serializer.loads(request_headers, self.cache.get(cache_url))
+        cached_response = self.serializer.loads(
+            request_headers, self.cache.get(cache_url)
+        )
 
         if not cached_response:
             # we didn't have a cached response
@@ -345,10 +338,8 @@ class CacheController(object):
         self.cache.set(
             cache_url,
             self.serializer.dumps(
-                request_headers,
-                cached_response,
-                cached_response.stream
-            )
+                request_headers, cached_response, cached_response.stream
+            ),
         )
 
         return cached_response

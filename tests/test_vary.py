@@ -14,7 +14,6 @@ from .conftest import make_client, cache_hit
 
 
 class TestVary(object):
-
     @pytest.fixture()
     def client(self, url):
         self.url = urljoin(url, "/vary_accept")
@@ -30,11 +29,7 @@ class TestVary(object):
         if "chunked" in resp.headers.get("transfer-encoding", ""):
             resp.headers.pop("transfer-encoding")
 
-        assert [
-            cached.stream._content,
-            cached.headers,
-            cached.status_code,
-        ] == [
+        assert [cached.stream._content, cached.headers, cached.status_code,] == [
             resp.content,
             resp.headers,
             resp.status_code,
@@ -55,19 +50,21 @@ class TestVary(object):
         in the Vary header are the same, it won't use the cached
         value.
         """
-        r = client.get(self.url, headers={'foo': 'a'})
+        r = client.get(self.url, headers={"foo": "a"})
         c = self.serializer.loads(r.request.headers, self.cache.get(self.url))
 
         # make sure we cached it
         self.assert_cached_equal(c, r)
 
         # make the same request
-        resp = client.get(self.url, headers={'foo': 'b'})
+        resp = client.get(self.url, headers={"foo": "b"})
         self.assert_cached_equal(c, resp)
         assert cache_hit(resp)
 
         # make a similar request, changing the accept header
-        resp = client.get(self.url, headers={"Accept": "text/plain, text/html", 'foo': 'c'})
+        resp = client.get(
+            self.url, headers={"Accept": "text/plain, text/html", "foo": "c"}
+        )
         with pytest.raises(AssertionError):
             self.assert_cached_equal(c, resp)
         assert not cache_hit(resp)
