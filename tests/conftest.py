@@ -8,9 +8,9 @@ from pprint import pformat
 
 import cherrypy
 import pytest
-from httpx import Client
+from httpx import AsyncClient, Client
 
-from httpx_caching import SyncHTTPCacheTransport
+from httpx_caching import CachingTransport
 from httpx_caching.models import Response
 
 
@@ -123,9 +123,17 @@ def server():
 @pytest.fixture()
 def client():
     client = Client()
-    client._transport = SyncHTTPCacheTransport(transport=client._transport)
+    client._transport = CachingTransport(transport=client._transport)
     yield client
     client.close()
+
+
+@pytest.fixture()
+async def async_client():
+    client = AsyncClient()
+    client._transport = CachingTransport(transport=client._transport)
+    yield client
+    await client.aclose()
 
 
 @pytest.fixture()
@@ -165,7 +173,13 @@ def pytest_unconfigure(config):
 
 def make_client(**kwargs):
     client = Client()
-    client._transport = SyncHTTPCacheTransport(transport=client._transport, **kwargs)
+    client._transport = CachingTransport(transport=client._transport, **kwargs)
+    return client
+
+
+def make_async_client(**kwargs):
+    client = AsyncClient()
+    client._transport = CachingTransport(transport=client._transport, **kwargs)
     return client
 
 

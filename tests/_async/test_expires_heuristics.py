@@ -9,6 +9,7 @@ from email.utils import formatdate, parsedate
 from pprint import pprint
 
 import httpx
+import pytest
 from httpx import Headers
 from mock import Mock
 
@@ -19,8 +20,9 @@ from httpx_caching.heuristics import (
     LastModified,
     OneDayCache,
 )
+from tests.conftest import cache_hit, make_async_client
 
-from .conftest import cache_hit, make_client
+pytestmark = pytest.mark.asyncio
 
 
 class TestHeuristicWithoutWarning(object):
@@ -32,11 +34,11 @@ class TestHeuristicWithoutWarning(object):
                 return {}
 
         self.heuristic = NoopHeuristic()
-        self.client = make_client(heuristic=self.heuristic)
+        self.async_client = make_async_client(heuristic=self.heuristic)
 
-    def test_no_header_change_means_no_warning_header(self, url):
+    async def test_no_header_change_means_no_warning_header(self, url):
         the_url = url + "optional_cacheable_request"
-        self.client.get(the_url)
+        await self.async_client.get(the_url)
 
         assert not self.heuristic.warning.called
 
@@ -47,70 +49,70 @@ class TestHeuristicWith3xxResponse(object):
             def update_headers(self, resp_headers, resp_status):
                 return {"x-dummy-header": "foobar"}
 
-        self.client = make_client(heuristic=DummyHeuristic())
+        self.async_client = make_async_client(heuristic=DummyHeuristic())
 
-    def test_heuristic_applies_to_301(self, url):
+    async def test_heuristic_applies_to_301(self, url):
         the_url = url + "permanent_redirect"
-        resp = self.client.get(the_url)
+        resp = await self.async_client.get(the_url)
         assert "x-dummy-header" in resp.headers
 
-    def test_heuristic_applies_to_304(self, url):
+    async def test_heuristic_applies_to_304(self, url):
         the_url = url + "conditional_get"
-        resp = self.client.get(the_url)
+        resp = await self.async_client.get(the_url)
         assert "x-dummy-header" in resp.headers
 
 
 class TestOneDayCache(object):
     def setup(self):
-        self.client = make_client(heuristic=OneDayCache())
+        self.async_client = make_async_client(heuristic=OneDayCache())
 
-    def test_cache_for_one_day(self, url):
+    async def test_cache_for_one_day(self, url):
         the_url = url + "optional_cacheable_request"
-        r = self.client.get(the_url)
+        r = await self.async_client.get(the_url)
 
         assert "expires" in r.headers
         assert "warning" in r.headers
 
         pprint(dict(r.headers))
 
-        r = self.client.get(the_url)
+        r = await self.async_client.get(the_url)
         pprint(dict(r.headers))
         assert cache_hit(r)
 
 
 class TestExpiresAfter(object):
     def setup(self):
-        self.client = make_client(heuristic=ExpiresAfter(days=1))
+        self.async_client = make_async_client(heuristic=ExpiresAfter(days=1))
 
-    def test_expires_after_one_day(self, url):
+    async def test_expires_after_one_day(self, url):
         the_url = url + "no_cache"
         resp = httpx.get(the_url)
         assert resp.headers["cache-control"] == "no-cache"
 
-        r = self.client.get(the_url)
+        r = await self.async_client.get(the_url)
 
         assert "expires" in r.headers
         assert "warning" in r.headers
         assert r.headers["cache-control"] == "public"
 
-        r = self.client.get(the_url)
+        r = await self.async_client.get(the_url)
         assert cache_hit(r)
 
 
 class TestLastModified(object):
     def setup(self):
-        self.client = make_client(heuristic=LastModified())
+        self.async_client = make_async_client(heuristic=LastModified())
 
-    def test_last_modified(self, url):
+    async def test_last_modified(self, url):
         the_url = url + "optional_cacheable_request"
-        r = self.client.get(the_url)
+        r = await self.async_client.get(the_url)
 
         assert "expires" in r.headers
         assert "warning" not in r.headers
 
         pprint(dict(r.headers))
 
-        r = self.client.get(the_url)
+        r = await self.async_client.get(the_url)
         pprint(dict(r.headers))
         assert cache_hit(r)
 
@@ -119,6 +121,7 @@ def datetime_to_header(dt):
     return formatdate(calendar.timegm(dt.timetuple()))
 
 
+@pytest.mark.sync
 class TestModifiedUnitTests(object):
     def last_modified(self, period):
         return time.strftime(TIME_FMT, time.gmtime(self.time_now - period))

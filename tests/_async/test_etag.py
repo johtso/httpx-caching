@@ -2,20 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from urllib.parse import urljoin
 
 import pytest
 from freezegun import freeze_time
-from httpx import Client, Limits, Timeout
+from httpx import AsyncClient, Limits, Timeout
 
-from httpx_caching import SyncHTTPCacheTransport
+from httpx_caching import CachingTransport
 from httpx_caching.cache import DictCache
+from tests.conftest import cache_hit, raw_resp
 
-from .conftest import cache_hit, raw_resp
-
-
-def assert_in_cache(cache, url, response):
-    assert cache.get(url) == raw_resp(response)
+pytestmark = pytest.mark.asyncio
 
 
 class TestETag(object):
@@ -26,21 +22,18 @@ class TestETag(object):
     """
 
     @pytest.fixture()
-    def client(self, url):
-        self.etag_url = urljoin(url, "/etag")
-        self.update_etag_url = urljoin(url, "/update_etag")
-        self.cache = DictCache()
-        client = Client()
-        client._transport = SyncHTTPCacheTransport(
-            transport=client._transport,
-            cache=self.cache,
+    async def async_client(self):
+        async_client = AsyncClient()
+        async_client._transport = CachingTransport(
+            transport=async_client._transport,
+            cache=DictCache(),
         )
 
-        yield client
+        yield async_client
 
-        client.close()
+        await async_client.aclose()
 
-    def test_etags_get_example(self, client, server):
+    async def test_etags_get_example(self, async_client, url):
         """RFC 2616 14.26
 
         The If-None-Match request-header field is used with a method to make
@@ -66,23 +59,23 @@ class TestETag(object):
         clients last version, and if not, it can return a 304 to indicate
         the client can use it's current representation.
         """
-        r1 = client.get(self.etag_url)
+        r1 = await async_client.get(url + "etag")
         # make sure we cached it
-        assert self.cache.get(self.etag_url)
+        assert async_client._transport.cache.get(url + "etag")
 
         # make the same request
-        r2 = client.get(self.etag_url)
+        r2 = await async_client.get(url + "etag")
         assert raw_resp(r2) == raw_resp(r1)
         assert cache_hit(r2)
 
         # tell the server to change the etags of the response
-        client.get(self.update_etag_url)
+        await async_client.get(url + "update_etag")
 
-        r3 = client.get(self.etag_url)
+        r3 = await async_client.get(url + "etag")
         assert raw_resp(r3) != raw_resp(r1)
         assert not cache_hit(r3)
 
-        r4 = client.get(self.etag_url)
+        r4 = await async_client.get(url + "etag")
         assert raw_resp(r4) == raw_resp(r3)
         assert cache_hit(r4)
 
@@ -93,30 +86,28 @@ class TestDisabledETags(object):
     """
 
     @pytest.fixture()
-    def client(self, server, url):
-        self.etag_url = urljoin(url, "/etag")
-        self.update_etag_url = urljoin(url, "/update_etag")
-        self.cache = DictCache()
-
-        client = Client()
-        client._transport = SyncHTTPCacheTransport(
-            transport=client._transport,
-            cache=self.cache,
+    async def async_client(self):
+        async_client = AsyncClient()
+        async_client._transport = CachingTransport(
+            transport=async_client._transport,
+            cache=DictCache(),
         )
 
-        return client
+        yield async_client
 
-    def test_expired_etags_if_none_match_response(self, client):
+        await async_client.aclose()
+
+    async def test_expired_etags_if_none_match_response(self, async_client, url):
         """Make sure an expired response that contains an ETag uses
         the If-None-Match header.
         """
         # Cache an old etag response
         with freeze_time("2012-01-14"):
-            client.get(self.etag_url)
+            await async_client.get(url + "etag")
 
-        assert self.cache.get(self.etag_url)
+        assert async_client._transport.cache.get(url + "etag")
 
-        r2 = client.get(self.etag_url)
+        r2 = await async_client.get(url + "etag")
         assert cache_hit(r2)
 
         real_request = r2.ext["real_request"]
@@ -133,17 +124,17 @@ class TestReleaseConnection(object):
     empty according to the HTTP spec) and release the connection.
     """
 
-    def test_not_modified_releases_connection(self, server, url):
-        self.etag_url = urljoin(url, "/etag")
-
-        client = Client(
+    async def test_not_modified_releases_connection(self, url):
+        async_client = AsyncClient(
             timeout=Timeout(1, pool=0.1),
             limits=Limits(max_connections=1, max_keepalive_connections=1),
         )
-        client._transport = SyncHTTPCacheTransport(
-            transport=client._transport,
+        async_client._transport = CachingTransport(
+            transport=async_client._transport,
         )
 
         # make sure the pool doesn't time out
         for _i in range(3):
-            client.get(self.etag_url)
+            await async_client.get(url + "etag")
+
+        await async_client.aclose()

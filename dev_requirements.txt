@@ -2,6 +2,7 @@
 
 pytest
 pytest-cov
+pytest-asyncio
 mock
 cherrypy
 freezegun
@@ -12,3 +13,4 @@ autoflake
 flake8
 flake8-bugbear
 mypy
+unasync

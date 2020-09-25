@@ -13,14 +13,10 @@ from ._types import RawHeaders, RawURL
 from .cache import DictCache
 from .controller import PERMANENT_REDIRECT_STATUSES, CacheController
 from .models import Response
-from .utils import SyncByteStreamWrapper
+from .utils import ByteStreamWrapper
 
 
-class HTTPCacheTransport:
-    """
-    Base caching Transport
-    """
-
+class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
     invalidating_methods = {"PUT", "PATCH", "DELETE"}
 
     def __init__(
@@ -44,6 +40,94 @@ class HTTPCacheTransport:
         if not transport:
             raise ValueError("You must provide a Transport.")
         self.transport = transport
+
+    def request(
+        self,
+        method: bytes,
+        url: RawURL,
+        headers: RawHeaders = None,
+        stream: httpcore.SyncByteStream = None,
+        ext: dict = None,
+    ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
+
+        request = httpx.Request(
+            method=method,
+            url=url,
+            headers=headers,
+            stream=stream,
+        )
+        original_request_headers = request.headers.copy()
+
+        # Either get a cached response, or update request headers for making new request.
+        cached_response = self.pre_io(request)
+
+        if cached_response:
+            return cached_response.to_raw()
+
+        # Make an actual request
+        raw_response = self.transport.request(
+            request.method,
+            request.url.raw,
+            request.headers.raw,
+            request.stream,
+            ext,
+        )
+        response = Response.from_raw(raw_response)
+        server_response_stream = response.stream
+
+        # Make any updates to the cache and maybe get a cached response (ETags)
+        response = self.post_io(original_request_headers, request, response)
+
+        if response.ext["from_cache"]:
+            # Make sure to clean up the ETag response stream just in case.
+            # Compliant servers will not return a body with ETag responses
+            server_response_stream.close()
+
+        return response.to_raw()
+
+    async def arequest(
+        self,
+        method: bytes,
+        url: RawURL,
+        headers: RawHeaders = None,
+        stream: httpcore.AsyncByteStream = None,
+        ext: dict = None,
+    ) -> Tuple[int, RawHeaders, httpcore.AsyncByteStream, dict]:
+
+        request = httpx.Request(
+            method=method,
+            url=url,
+            headers=headers,
+            stream=stream,
+        )
+        original_request_headers = request.headers.copy()
+
+        # Either get a cached response, or update request headers for making new request.
+        cached_response = self.pre_io(request)
+
+        if cached_response:
+            return cached_response.to_raw()
+
+        # Make an actual request
+        raw_response = await self.transport.arequest(
+            request.method,
+            request.url.raw,
+            request.headers.raw,
+            request.stream,
+            ext,
+        )
+        response = Response.from_raw(raw_response)
+        server_response_stream = response.stream
+
+        # Make any updates to the cache and maybe get a cached response (ETags)
+        response = self.post_io(original_request_headers, request, response)
+
+        if response.ext["from_cache"]:
+            # Make sure to clean up the ETag response stream just in case.
+            # Compliant servers will not return a body with ETag responses
+            await server_response_stream.aclose()
+
+        return response.to_raw()
 
     def is_cacheable_method(self, method: str):
         return method in self.cacheable_methods
@@ -93,15 +177,6 @@ class HTTPCacheTransport:
 
             # apply any expiration heuristics
             if response.status_code == 304:
-                # We are done with the server response, read a
-                # possible response body (compliant servers will
-                # not return one, but we cannot be 100% sure) and
-                # release the connection back to the pool.
-                # TODO: This wont work for Async!
-                for _ in response.stream:
-                    pass
-                response.stream.close()
-
                 # We must have sent an ETag request. This could mean
                 # that we've been expired already or that we simply
                 # have an etag. In either case, we want to try and
@@ -119,7 +194,7 @@ class HTTPCacheTransport:
                 # Wrap the response file with a wrapper that will cache the
                 #   response when the stream has been consumed.
                 # TODO: Should this be self.StreamWrapper?
-                response.stream = SyncByteStreamWrapper(
+                response.stream = ByteStreamWrapper(
                     response.stream,
                     functools.partial(
                         self.controller.cache_response,
@@ -129,14 +204,6 @@ class HTTPCacheTransport:
                     ),
                 )
         return None
-
-    def close(self):
-        self.cache.close()
-        self.transport.close()
-
-
-class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
-    # TODO: make sure supplied transport is sync
 
     def pre_io(self, request: httpx.Request) -> Optional[Response]:
 
@@ -179,43 +246,6 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         self.add_ext(response, request, from_cache, new_request=True)
         return response
 
-    def request(
-        self,
-        method: bytes,
-        url: RawURL,
-        headers: RawHeaders = None,
-        stream: httpcore.SyncByteStream = None,
-        ext: dict = None,
-    ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
-
-        request = httpx.Request(
-            method=method,
-            url=url,
-            headers=headers,
-            stream=stream,
-        )
-        original_request_headers = request.headers.copy()
-
-        # Either get a cached response, or update request headers for making new request.
-        cached_response = self.pre_io(request)
-
-        if cached_response:
-            return cached_response.to_raw()
-
-        # Make an actual request
-        raw_response = self.transport.request(
-            request.method,
-            request.url.raw,
-            request.headers.raw,
-            request.stream,
-            ext,
-        )
-        response = Response.from_raw(raw_response)
-
-        # Make any updates to the cache and maybe get a cached response (ETags)
-        response = self.post_io(original_request_headers, request, response)
-        return response.to_raw()
-
     def add_ext(
         self,
         response: Response,
@@ -227,9 +257,10 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         if new_request:
             response.ext["real_request"] = request
 
+    def close(self):
+        self.cache.close()
+        self.transport.close()
 
-class AsyncHTTPCacheTransport(HTTPCacheTransport, httpcore.AsyncHTTPTransport):
-    # TODO: make sure supplied transport is async
-
-    async def request(self, *args, **kwargs):
-        return await self.transport.request(*args, **kwargs)
+    async def aclose(self):
+        self.cache.close()
+        await self.transport.aclose()

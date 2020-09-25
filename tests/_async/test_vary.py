@@ -8,18 +8,19 @@ import pytest
 
 from httpx_caching.cache import DictCache
 from httpx_caching.serialize import Serializer
+from tests.conftest import cache_hit, make_async_client
 
-from .conftest import cache_hit, make_client
+pytestmark = pytest.mark.asyncio
 
 
 class TestVary(object):
     @pytest.fixture()
-    def client(self, url):
+    def async_client(self, url):
         self.url = urljoin(url, "/vary_accept")
         self.cache = DictCache()
         self.serializer = Serializer()
-        client = make_client(cache=self.cache, serializer=self.serializer)
-        return client
+        async_client = make_async_client(cache=self.cache, serializer=self.serializer)
+        return async_client
 
     def assert_cached_equal(self, cached, resp):
         print(cached, resp)
@@ -34,7 +35,7 @@ class TestVary(object):
             resp.status_code,
         ]
 
-    def test_vary_example(self, client):
+    async def test_vary_example(self, async_client):
         """RFC 2616 13.6
 
         When the cache receives a subsequent request whose Request-URI
@@ -49,19 +50,19 @@ class TestVary(object):
         in the Vary header are the same, it won't use the cached
         value.
         """
-        r = client.get(self.url, headers={"foo": "a"})
+        r = await async_client.get(self.url, headers={"foo": "a"})
         c = self.serializer.loads(r.request.headers, self.cache.get(self.url))
 
         # make sure we cached it
         self.assert_cached_equal(c, r)
 
         # make the same request
-        resp = client.get(self.url, headers={"foo": "b"})
+        resp = await async_client.get(self.url, headers={"foo": "b"})
         self.assert_cached_equal(c, resp)
         assert cache_hit(resp)
 
         # make a similar request, changing the accept header
-        resp = client.get(
+        resp = await async_client.get(
             self.url, headers={"Accept": "text/plain, text/html", "foo": "c"}
         )
         with pytest.raises(AssertionError):

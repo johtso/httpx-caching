@@ -1,5 +1,5 @@
-from .adapter import SyncHTTPCacheTransport
+from .adapter import CachingTransport
 
 __all__ = [
-    "SyncHTTPCacheTransport",
+    "CachingTransport",
 ]

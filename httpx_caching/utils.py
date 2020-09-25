@@ -1,12 +1,12 @@
-from typing import Callable, Iterator
+from typing import AsyncIterator, Callable, Iterator, Union
 
-import httpcore
+from httpcore import AsyncByteStream, SyncByteStream
 
 
-class SyncByteStreamWrapper(httpcore.SyncByteStream):
+class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
     def __init__(
         self,
-        stream: httpcore.SyncByteStream,
+        stream: Union[SyncByteStream, AsyncByteStream],
         callback: Callable,
     ) -> None:
         """
@@ -17,10 +17,19 @@ class SyncByteStreamWrapper(httpcore.SyncByteStream):
         self.buffer = bytearray()
 
     def __iter__(self) -> Iterator[bytes]:
-        for chunk in self.stream:
+        for chunk in self.stream:  # type: ignore
+            self.buffer.extend(chunk)
+            yield chunk
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        async for chunk in self.stream:  # type: ignore
             self.buffer.extend(chunk)
             yield chunk
 
     def close(self) -> None:
-        self.stream.close()
+        self.stream.close()  # type: ignore
+        self.callback(bytes(self.buffer))
+
+    async def aclose(self) -> None:
+        await self.stream.aclose()  # type: ignore
         self.callback(bytes(self.buffer))
