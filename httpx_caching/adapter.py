@@ -53,9 +53,7 @@ class HTTPCacheTransport:
 
     def handle_request(
         self,
-        request_method: str,
-        request_url: URL,
-        request_headers: Headers,
+        request: httpx.Request,
     ) -> Tuple[Optional[Response], Headers]:
         """
         Returns a potentially valid cached Response.
@@ -63,17 +61,17 @@ class HTTPCacheTransport:
 
         # TODO: CacheControl allowed passing cacheable_methods as part of the request?
         cached_response = None
-        new_request_headers = request_headers.copy()
+        new_request_headers = request.headers.copy()
 
-        if self.is_cacheable_method(request_method):
+        if self.is_cacheable_method(request.method):
             cached_response = self.controller.cached_request(
-                request_url, request_headers
+                request.url, request.headers
             )
 
         # check for etags and add headers if appropriate
         # TODO: This seems to hit the cache a second time, that shouldn't be necessary.
         new_request_headers.update(
-            self.controller.conditional_headers(request_url, request_headers)
+            self.controller.conditional_headers(request.url, request.headers)
         )
 
         return cached_response, new_request_headers
@@ -142,9 +140,7 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
 
     def pre_io(self, request: httpx.Request) -> Optional[Response]:
 
-        cached_response, new_request_headers = self.handle_request(
-            request.method, request.url, request.headers
-        )
+        cached_response, new_request_headers = self.handle_request(request)
 
         if cached_response:
             self.add_ext(cached_response, request, from_cache=True)
@@ -167,7 +163,6 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             cache_url = self.controller.cache_url(request.url)
             self.cache.delete(cache_url)
 
-        # Update cache with new response and maybe get a cached response (ETags)
         cached_response = self.handle_new_response(
             request.url,
             request.method,
@@ -201,6 +196,7 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         )
         original_request_headers = request.headers.copy()
 
+        # Either get a cached response, or update request headers for making new request.
         cached_response = self.pre_io(request)
 
         if cached_response:
@@ -216,6 +212,7 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         )
         response = Response.from_raw(raw_response)
 
+        # Make any updates to the cache and maybe get a cached response (ETags)
         response = self.post_io(original_request_headers, request, response)
         return response.to_raw()
 
