@@ -51,7 +51,7 @@ class HTTPCacheTransport:
     def is_invalidating_method(self, method: str):
         return method in self.invalidating_methods
 
-    def pre_request(
+    def handle_request(
         self,
         request_method: str,
         request_url: URL,
@@ -78,7 +78,7 @@ class HTTPCacheTransport:
 
         return cached_response, new_request_headers
 
-    def post_request(
+    def handle_new_response(
         self,
         request_url: URL,
         request_method: str,
@@ -140,6 +140,50 @@ class HTTPCacheTransport:
 class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
     # TODO: make sure supplied transport is sync
 
+    def pre_io(self, request: httpx.Request) -> Optional[Response]:
+
+        cached_response, new_request_headers = self.handle_request(
+            request.method, request.url, request.headers
+        )
+
+        if cached_response:
+            self.add_ext(cached_response, request, from_cache=True)
+            return cached_response
+        else:
+            request.headers = new_request_headers
+            return None
+
+    def post_io(
+        self,
+        original_request_headers: Headers,
+        request: httpx.Request,
+        response: Response,
+    ) -> Response:
+
+        # See if we should invalidate the cache.
+        if self.is_invalidating_method(request.method) and not codes.is_error(
+            response.status_code
+        ):
+            cache_url = self.controller.cache_url(request.url)
+            self.cache.delete(cache_url)
+
+        # Update cache with new response and maybe get a cached response (ETags)
+        cached_response = self.handle_new_response(
+            request.url,
+            request.method,
+            original_request_headers,
+            response,
+        )
+
+        if cached_response:
+            from_cache = True
+            response = cached_response
+        else:
+            from_cache = False
+
+        self.add_ext(response, request, from_cache, new_request=True)
+        return response
+
     def request(
         self,
         method: bytes,
@@ -155,47 +199,24 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
             headers=headers,
             stream=stream,
         )
+        original_request_headers = request.headers.copy()
 
-        cached_response, new_request_headers = self.pre_request(
-            request.method, request.url, request.headers
-        )
+        cached_response = self.pre_io(request)
 
         if cached_response:
-            self.add_ext(cached_response, request, from_cache=True)
             return cached_response.to_raw()
 
         # Make an actual request
-        response = self.transport.request(
+        raw_response = self.transport.request(
             request.method,
             request.url.raw,
-            new_request_headers.raw,
+            request.headers.raw,
             request.stream,
             ext,
         )
-        response = Response.from_raw(response)
+        response = Response.from_raw(raw_response)
 
-        # See if we should invalidate the cache.
-        if self.is_invalidating_method(request.method) and not codes.is_error(
-            response.status_code
-        ):
-            cache_url = self.controller.cache_url(request.url)
-            self.cache.delete(cache_url)
-
-        # Update cache with new response and maybe get a cached response (ETags)
-        cached_response = self.post_request(
-            request.url,
-            request.method,
-            request.headers,
-            response,
-        )
-
-        if cached_response:
-            from_cache = True
-            response = cached_response
-        else:
-            from_cache = False
-
-        self.add_ext(response, request, from_cache, new_request_headers)
+        response = self.post_io(original_request_headers, request, response)
         return response.to_raw()
 
     def add_ext(
@@ -203,16 +224,11 @@ class SyncHTTPCacheTransport(HTTPCacheTransport, httpcore.SyncHTTPTransport):
         response: Response,
         request: httpx.Request,
         from_cache: bool,
-        new_request_headers: Headers = None,
+        new_request: bool = False,
     ) -> None:
         response.ext["from_cache"] = from_cache
-        if new_request_headers:
-            response.ext["real_request"] = httpx.Request(
-                method=request.method,
-                url=request.url,
-                headers=new_request_headers,
-                stream=request.stream,
-            )
+        if new_request:
+            response.ext["real_request"] = request
 
 
 class AsyncHTTPCacheTransport(HTTPCacheTransport, httpcore.AsyncHTTPTransport):
