@@ -19,16 +19,13 @@ class TestChunkedResponses(object):
         """
         url = url + "stream"
         r = await async_client.get(url)
-        from pprint import pprint
 
-        pprint(dict(r.headers))
-        pprint(dict(r.request.headers))
-        print(r.content)
         assert r.headers.get("transfer-encoding") == "chunked"
 
         r = await async_client.get(url, headers={"Cache-Control": "max-age=3600"})
         assert cache_hit(r)
 
+    # TODO: Test that stream is only cached the first time it is iterated over
     async def test_stream_is_cached(self, url, async_client):
         async with async_client.stream("GET", url + "stream") as resp_1:
             content_1 = await resp_1.aread()
@@ -40,11 +37,9 @@ class TestChunkedResponses(object):
         assert cache_hit(resp_2)
         assert content_1 == content_2
 
-    @pytest.mark.xfail
     async def test_stream_is_not_cached_when_content_is_not_read(
         self, url, async_client
     ):
-        # TODO: Is this really relevant with httpx?
         async with async_client.stream("GET", url + "stream"):
             pass
         async with async_client.stream("GET", url + "stream") as resp:
