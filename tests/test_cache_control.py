@@ -28,7 +28,7 @@ class NullSerializer(object):
 
 
 class TestCacheControllerResponse(object):
-    url = "http://url.com/"
+    url = URL("http://url.com/")
 
     def resp(self, headers=None):
         headers = headers or {}
@@ -99,7 +99,7 @@ class TestCacheControllerResponse(object):
         cache = DictCache({self.url: resp})
         cc = CacheController(cache)
 
-        cache_url = cc.cache_url(self.url)
+        cache_url = cc.cache_key(self.url)
 
         resp = self.resp({"cache-control": "no-store"})
         assert cc.cache.get(cache_url)
@@ -136,10 +136,11 @@ class TestCacheControllerResponse(object):
         # skip our in/out processing
         cc.serializer = Mock()
         cc.serializer.loads.return_value = cached_resp
-        cc.cache_url = Mock(return_value="http://foo.com")  # type: ignore
+        cc.cache_key = Mock(return_value="http://foo.com")  # type: ignore
 
         result = cc.update_cached_response(self.url, Mock(), resp_headers)
 
+        assert result
         assert result.headers["ETag"] == resp_headers["ETag"]
         assert result.headers["Content-Length"] == "100"
 
@@ -151,7 +152,7 @@ class TestCacheControlRequest(object):
         self.c = CacheController(DictCache(), serializer=NullSerializer())
 
     def req(self, headers):
-        return self.c.cached_request(self.url, Headers(headers))
+        return self.c.get_cached_response(self.url, Headers(headers))
 
     def test_cache_request_no_headers(self):
         cached_resp = Mock(

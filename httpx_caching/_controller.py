@@ -9,11 +9,11 @@ import calendar
 import logging
 import time
 from email.utils import parsedate_tz
-from typing import Optional
+from typing import Any, Iterable, Optional
 
 from httpx import URL, Headers
 
-from ._cache import DictCache
+from ._cache import BaseCache, DictCache
 from ._models import Response
 from ._serializer import Serializer
 
@@ -26,7 +26,12 @@ class CacheController(object):
     """An interface to see if request should cached or not."""
 
     def __init__(
-        self, cache=None, cache_etags=True, serializer=None, status_codes=None
+        self,
+        cache: BaseCache = None,
+        cache_etags: bool = True,
+        # TODO: Define a BaseSerializer?
+        serializer: Any = None,
+        status_codes: Iterable[int] = None,
     ):
         self.cache = DictCache() if cache is None else cache
         self.cache_etags = cache_etags
@@ -34,10 +39,12 @@ class CacheController(object):
         self.cacheable_status_codes = status_codes or (200, 203, 300, 301, 308)
 
     @classmethod
-    def cache_url(cls, uri):
-        return str(uri)
+    def cache_key(cls, url: URL) -> str:
+        return str(url)
 
-    def parse_cache_control(self, headers):
+    # TODO: Tricky type hinting
+    @classmethod
+    def parse_cache_control(cls, headers: Headers):
         known_directives = {
             # https://tools.ietf.org/html/rfc7234#section-5.2
             "max-age": (int, True),
@@ -56,7 +63,7 @@ class CacheController(object):
 
         cc_headers = headers.get("cache-control", "")
 
-        retval = {}
+        retval = {}  # type: ignore
 
         for cc_directive in cc_headers.split(","):
             if not cc_directive.strip():
@@ -91,15 +98,17 @@ class CacheController(object):
 
         return retval
 
-    def cached_request(
+    def get_cached_response(
         self,
         request_url: URL,
         request_headers: Headers,
     ) -> Optional[Response]:
         """
-        Return a cached response if it exists in the cache.
+        Return a valid cached response if it exists in the cache.
+
+        If cached response is stale is is purged from cache.
         """
-        cache_url = self.cache_url(request_url)
+        cache_url = self.cache_key(request_url)
         logger.debug('Looking up "%s" in the cache', cache_url)
         cc = self.parse_cache_control(request_headers)
 
@@ -203,10 +212,12 @@ class CacheController(object):
         # return the original handler
         return None
 
-    def conditional_headers(self, request_url, request_headers):
-        cache_url = self.cache_url(request_url)
+    def conditional_headers(
+        self, request_url: URL, request_headers: Headers
+    ) -> Headers:
+        cache_url = self.cache_key(request_url)
         response = self.serializer.loads(request_headers, self.cache.get(cache_url))
-        new_headers = {}
+        new_headers = Headers()
 
         if response:
             if "etag" in response.headers:
@@ -217,9 +228,15 @@ class CacheController(object):
 
         return new_headers
 
-    def cache_response(self, request_url, request_headers, response, response_body):
+    def cache_response(
+        self,
+        request_url: URL,
+        request_headers: Headers,
+        response: Response,
+        response_body: bytes,
+    ) -> None:
         """
-        Algorithm for caching requests.
+        Algorithm for caching responses.
         """
         # From httplib2: Don't cache 206's since we aren't going to
         #                handle byte range requests
@@ -246,7 +263,7 @@ class CacheController(object):
         cc_req = self.parse_cache_control(request_headers)
         cc = self.parse_cache_control(response.headers)
 
-        cache_url = self.cache_url(request_url)
+        cache_url = self.cache_key(request_url)
         logger.debug('Updating cache with response from "%s"', cache_url)
 
         # Delete it from the cache if we happen to have it stored there
@@ -304,14 +321,16 @@ class CacheController(object):
             cache_url, self.serializer.dumps(request_headers, response, response_body)
         )
 
-    def update_cached_response(self, request_url, request_headers, response_headers):
+    def update_cached_response(
+        self, request_url: URL, request_headers: Headers, response_headers: Headers
+    ) -> Optional[Response]:
         """On a 304 we will get a new set of headers that we want to
         update our cached value with, assuming we have one.
 
         This should only ever be called when we've sent an ETag and
         gotten a 304 as the response.
         """
-        cache_url = self.cache_url(request_url)
+        cache_url = self.cache_key(request_url)
 
         cached_response = self.serializer.loads(
             request_headers, self.cache.get(cache_url)
@@ -319,7 +338,7 @@ class CacheController(object):
 
         if not cached_response:
             # we didn't have a cached response
-            return
+            return None
 
         # Lets update our headers with the headers from the new request:
         # http://tools.ietf.org/html/draft-ietf-httpbis-p4-conditional-26#section-4.1

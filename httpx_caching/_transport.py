@@ -145,7 +145,9 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
 
         new_request_headers = None
 
-        cached_response = self.controller.cached_request(request.url, request.headers)
+        cached_response = self.controller.get_cached_response(
+            request.url, request.headers
+        )
 
         if not cached_response:
             new_request_headers = request.headers.copy()
@@ -223,7 +225,7 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
         if self.is_invalidating_method(request.method) and not codes.is_error(
             response.status_code
         ):
-            cache_url = self.controller.cache_url(request.url)
+            cache_url = self.controller.cache_key(request.url)
             self.cache.delete(cache_url)
 
         if self.is_cacheable_method(request.method):
