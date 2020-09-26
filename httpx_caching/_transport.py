@@ -138,73 +138,68 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
     def handle_request(
         self,
         request: httpx.Request,
-    ) -> Tuple[Optional[Response], Headers]:
+    ) -> Tuple[Optional[Response], Optional[Headers]]:
         """
-        Returns a potentially valid cached Response.
+        Returns a valid cached Response, or updated headers for new request.
         """
 
-        # TODO: CacheControl allowed passing cacheable_methods as part of the request?
-        cached_response = None
-        new_request_headers = request.headers.copy()
+        new_request_headers = None
 
-        if self.is_cacheable_method(request.method):
-            cached_response = self.controller.cached_request(
-                request.url, request.headers
+        cached_response = self.controller.cached_request(request.url, request.headers)
+
+        if not cached_response:
+            new_request_headers = request.headers.copy()
+            # TODO: This seems to hit the cache a second time, that shouldn't be necessary.
+            # check for etags and add headers if appropriate
+            new_request_headers.update(
+                self.controller.conditional_headers(request.url, request.headers)
             )
-
-        # check for etags and add headers if appropriate
-        # TODO: This seems to hit the cache a second time, that shouldn't be necessary.
-        new_request_headers.update(
-            self.controller.conditional_headers(request.url, request.headers)
-        )
 
         return cached_response, new_request_headers
 
     def handle_new_response(
         self,
         request_url: URL,
-        request_method: str,
         request_headers: Headers,
         response: Response,
     ) -> Optional[Response]:
 
-        # TODO: is cacheability being checked in too many places?
-        if self.is_cacheable_method(request_method):
-            # Check for any heuristics that might update headers
-            # before trying to cache.
-            if self.heuristic:
-                self.heuristic.apply(response.headers, response.status_code)
+        # Check for any heuristics that might update headers
+        # before trying to cache.
+        if self.heuristic:
+            self.heuristic.apply(response.headers, response.status_code)
 
-            # apply any expiration heuristics
-            if response.status_code == 304:
-                # We must have sent an ETag request. This could mean
-                # that we've been expired already or that we simply
-                # have an etag. In either case, we want to try and
-                # update the cache if that is the case.
-                return self.controller.update_cached_response(
-                    request_url, request_headers, response.headers
-                )
+        # apply any expiration heuristics
+        if response.status_code == 304:
+            # We must have sent an ETag request. This could mean
+            # that we've been expired already or that we simply
+            # have an etag. In either case, we want to try and
+            # update the cache if that is the case.
+            return self.controller.update_cached_response(
+                request_url, request_headers, response.headers
+            )
 
-            # We always cache the 301 responses
-            if response.status_code in PERMANENT_REDIRECT_STATUSES:
-                self.controller.cache_response(
-                    request_url, request_headers, response, None
-                )
-            else:
-                # Wrap the response file with a wrapper that will cache the
-                #   response when the stream has been consumed.
-                response.stream = ByteStreamWrapper(
-                    response.stream,
-                    functools.partial(
-                        self.controller.cache_response,
-                        request_url,
-                        request_headers,
-                        response,
-                    ),
-                )
+        # We always cache the 301 responses
+        if response.status_code in PERMANENT_REDIRECT_STATUSES:
+            self.controller.cache_response(request_url, request_headers, response, None)
+        else:
+            # Wrap the response file with a wrapper that will cache the
+            #   response when the stream has been consumed.
+            response.stream = ByteStreamWrapper(
+                response.stream,
+                functools.partial(
+                    self.controller.cache_response,
+                    request_url,
+                    request_headers,
+                    response,
+                ),
+            )
+
         return None
 
     def pre_io(self, request: httpx.Request) -> Optional[Response]:
+        if not self.is_cacheable_method(request.method):
+            return None
 
         cached_response, new_request_headers = self.handle_request(request)
 
@@ -212,7 +207,7 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
             self.add_ext(cached_response, request, from_cache=True)
             return cached_response
         else:
-            request.headers = new_request_headers
+            request.headers = new_request_headers  # type: ignore
             return None
 
     def post_io(
@@ -222,6 +217,8 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
         response: Response,
     ) -> Response:
 
+        cached_response = None
+
         # See if we should invalidate the cache.
         if self.is_invalidating_method(request.method) and not codes.is_error(
             response.status_code
@@ -229,12 +226,12 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
             cache_url = self.controller.cache_url(request.url)
             self.cache.delete(cache_url)
 
-        cached_response = self.handle_new_response(
-            request.url,
-            request.method,
-            original_request_headers,
-            response,
-        )
+        if self.is_cacheable_method(request.method):
+            cached_response = self.handle_new_response(
+                request.url,
+                original_request_headers,
+                response,
+            )
 
         if cached_response:
             from_cache = True
