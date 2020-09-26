@@ -6,8 +6,8 @@ from urllib.parse import urljoin
 
 import pytest
 
-from httpx_caching.cache import DictCache
-from httpx_caching.serialize import Serializer
+from httpx_caching._cache import DictCache
+from httpx_caching._serializer import Serializer
 from tests.conftest import cache_hit, make_async_client
 
 pytestmark = pytest.mark.asyncio

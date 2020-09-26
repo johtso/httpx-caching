@@ -5,7 +5,7 @@
 import httpcore
 import msgpack
 
-from .models import Response
+from ._models import Response
 
 
 class Serializer(object):

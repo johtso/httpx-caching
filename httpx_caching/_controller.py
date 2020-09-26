@@ -13,9 +13,9 @@ from typing import Optional
 
 from httpx import URL, Headers
 
-from .cache import DictCache
-from .models import Response
-from .serialize import Serializer
+from ._cache import DictCache
+from ._models import Response
+from ._serializer import Serializer
 
 logger = logging.getLogger(__name__)
 

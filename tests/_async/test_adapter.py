@@ -5,7 +5,7 @@
 import mock
 import pytest
 
-from httpx_caching.cache import DictCache
+from httpx_caching._cache import DictCache
 from tests.conftest import cache_hit
 
 pytestmark = pytest.mark.asyncio

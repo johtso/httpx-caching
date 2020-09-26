@@ -9,11 +9,11 @@ import httpcore
 import httpx
 from httpx import URL, Headers, codes
 
+from ._cache import DictCache
+from ._controller import PERMANENT_REDIRECT_STATUSES, CacheController
+from ._models import Response
 from ._types import RawHeaders, RawURL
-from .cache import DictCache
-from .controller import PERMANENT_REDIRECT_STATUSES, CacheController
-from .models import Response
-from .utils import ByteStreamWrapper
+from ._utils import ByteStreamWrapper
 
 
 class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):

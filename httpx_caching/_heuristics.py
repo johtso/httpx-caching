@@ -50,7 +50,7 @@ class BaseHeuristic(object):
                 response_headers.update({"Warning": warning_header_value})
 
 
-class OneDayCache(BaseHeuristic):
+class OneDayCacheHeuristic(BaseHeuristic):
     """
     Cache the response by providing an expires 1 day in the
     future.
@@ -67,7 +67,7 @@ class OneDayCache(BaseHeuristic):
         return headers
 
 
-class ExpiresAfter(BaseHeuristic):
+class ExpiresAfterHeuristic(BaseHeuristic):
     """
     Cache **all** requests for a defined time period.
     """
@@ -84,7 +84,7 @@ class ExpiresAfter(BaseHeuristic):
         return tmpl % self.delta
 
 
-class LastModified(BaseHeuristic):
+class LastModifiedHeuristic(BaseHeuristic):
     """
     If there is no Expires header already, fall back on Last-Modified
     using the heuristic from

@@ -13,12 +13,12 @@ import pytest
 from httpx import Headers
 from mock import Mock
 
-from httpx_caching.heuristics import (
+from httpx_caching._heuristics import (
     TIME_FMT,
     BaseHeuristic,
-    ExpiresAfter,
-    LastModified,
-    OneDayCache,
+    ExpiresAfterHeuristic,
+    LastModifiedHeuristic,
+    OneDayCacheHeuristic,
 )
 from tests.conftest import cache_hit, make_async_client
 
@@ -64,7 +64,7 @@ class TestHeuristicWith3xxResponse(object):
 
 class TestOneDayCache(object):
     def setup(self):
-        self.async_client = make_async_client(heuristic=OneDayCache())
+        self.async_client = make_async_client(heuristic=OneDayCacheHeuristic())
 
     async def test_cache_for_one_day(self, url):
         the_url = url + "optional_cacheable_request"
@@ -82,7 +82,7 @@ class TestOneDayCache(object):
 
 class TestExpiresAfter(object):
     def setup(self):
-        self.async_client = make_async_client(heuristic=ExpiresAfter(days=1))
+        self.async_client = make_async_client(heuristic=ExpiresAfterHeuristic(days=1))
 
     async def test_expires_after_one_day(self, url):
         the_url = url + "no_cache"
@@ -101,7 +101,7 @@ class TestExpiresAfter(object):
 
 class TestLastModified(object):
     def setup(self):
-        self.async_client = make_async_client(heuristic=LastModified())
+        self.async_client = make_async_client(heuristic=LastModifiedHeuristic())
 
     async def test_last_modified(self, url):
         the_url = url + "optional_cacheable_request"
@@ -127,7 +127,7 @@ class TestModifiedUnitTests(object):
         return time.strftime(TIME_FMT, time.gmtime(self.time_now - period))
 
     def setup(self):
-        self.heuristic = LastModified()
+        self.heuristic = LastModifiedHeuristic()
         self.time_now = time.time()
         day_in_seconds = 86400
         self.year_ago = self.last_modified(day_in_seconds * 365)

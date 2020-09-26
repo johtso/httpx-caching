@@ -11,7 +11,7 @@ import pytest
 from httpx import AsyncClient, Client
 
 from httpx_caching import CachingTransport
-from httpx_caching.models import Response
+from httpx_caching._models import Response
 
 
 class SimpleApp(object):

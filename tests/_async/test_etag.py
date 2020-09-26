@@ -8,7 +8,7 @@ from freezegun import freeze_time
 from httpx import AsyncClient, Limits, Timeout
 
 from httpx_caching import CachingTransport
-from httpx_caching.cache import DictCache
+from httpx_caching._cache import DictCache
 from tests.conftest import cache_hit, raw_resp
 
 pytestmark = pytest.mark.asyncio

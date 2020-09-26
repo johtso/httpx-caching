@@ -12,9 +12,9 @@ import pytest
 from httpx import URL, Headers
 from mock import ANY, Mock
 
-from httpx_caching.cache import DictCache
-from httpx_caching.controller import CacheController
-from httpx_caching.models import Response
+from httpx_caching._cache import DictCache
+from httpx_caching._controller import CacheController
+from httpx_caching._models import Response
 
 TIME_FMT = "%a, %d %b %Y %H:%M:%S GMT"
 
