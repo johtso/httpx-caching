@@ -193,7 +193,6 @@ class CachingTransport(httpcore.SyncHTTPTransport, httpcore.AsyncHTTPTransport):
             else:
                 # Wrap the response file with a wrapper that will cache the
                 #   response when the stream has been consumed.
-                # TODO: Should this be self.StreamWrapper?
                 response.stream = ByteStreamWrapper(
                     response.stream,
                     functools.partial(
