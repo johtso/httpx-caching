@@ -10,7 +10,7 @@ import cherrypy
 import pytest
 from httpx import AsyncClient, Client
 
-from httpx_caching import CachingTransport
+from httpx_caching import CachingClient
 from httpx_caching._models import Response
 
 
@@ -123,7 +123,7 @@ def server():
 @pytest.fixture()
 def client():
     client = Client()
-    client._transport = CachingTransport(transport=client._transport)
+    client = CachingClient(client)
     yield client
     client.close()
 
@@ -131,7 +131,7 @@ def client():
 @pytest.fixture()
 async def async_client():
     client = AsyncClient()
-    client._transport = CachingTransport(transport=client._transport)
+    client = CachingClient(client)
     yield client
     await client.aclose()
 
@@ -173,13 +173,13 @@ def pytest_unconfigure(config):
 
 def make_client(**kwargs):
     client = Client()
-    client._transport = CachingTransport(transport=client._transport, **kwargs)
+    client = CachingClient(client, **kwargs)
     return client
 
 
 def make_async_client(**kwargs):
     client = AsyncClient()
-    client._transport = CachingTransport(transport=client._transport, **kwargs)
+    client = CachingClient(client, **kwargs)
     return client
 
 
