@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import httpx
 import msgpack
-from mock import Mock
 
 from httpx_caching._models import Response
 from httpx_caching._serializer import Serializer
@@ -28,13 +26,14 @@ class TestSerializer(object):
         }
 
     def test_read_version_v0(self):
-        req = Mock()
-        resp = self.serializer._loads_v0(req, msgpack.dumps(self.response_data))
+        resp, _vary_fields = self.serializer._loads_v0(
+            msgpack.dumps(self.response_data)
+        )
         assert resp.stream._content == "Hello World"
 
     def test_dumps(self):
         assert self.serializer.dumps(
-            httpx.Headers({"vary": "foo"}),
             Response.from_raw((200, {}, b"foo", {})),
-            "foo",
+            {},
+            b"foo",
         )

@@ -5,13 +5,47 @@
 
 import pytest
 from freezegun import freeze_time
-from httpx import AsyncClient, Limits, Timeout
+from httpx import AsyncClient, Limits, Request, Timeout
 
-from httpx_caching import CachingTransport
+from httpx_caching import AsyncCachingTransport
 from httpx_caching._cache import DictCache
 from tests.conftest import cache_hit, raw_resp
 
 pytestmark = pytest.mark.asyncio
+
+
+def get_last_request(client):
+    (
+        method,
+        url,
+        headers,
+        stream,
+        _ext,
+    ) = client._transport.transport.arequest.call_args.args
+    return Request(
+        method=method,
+        url=url,
+        headers=headers,
+        stream=stream,
+    )
+
+
+@pytest.fixture()
+async def async_client(mocker):
+    async_client = AsyncClient()
+    transport = AsyncCachingTransport(
+        transport=async_client._transport,
+        cache=DictCache(),
+    )
+    async_client._transport = transport
+
+    mocker.patch.object(
+        transport.transport, "arequest", wraps=transport.transport.arequest
+    )
+
+    yield async_client
+
+    await async_client.aclose()
 
 
 class TestETag(object):
@@ -20,18 +54,6 @@ class TestETag(object):
     Equal Priority Caching is a term I've defined to describe when
     ETags are cached orthgonally from Time Based Caching.
     """
-
-    @pytest.fixture()
-    async def async_client(self):
-        async_client = AsyncClient()
-        async_client._transport = CachingTransport(
-            transport=async_client._transport,
-            cache=DictCache(),
-        )
-
-        yield async_client
-
-        await async_client.aclose()
 
     async def test_etags_get_example(self, async_client, url):
         """RFC 2616 14.26
@@ -65,37 +87,25 @@ class TestETag(object):
 
         # make the same request
         r2 = await async_client.get(url + "etag")
-        assert raw_resp(r2) == raw_resp(r1)
         assert cache_hit(r2)
+        assert raw_resp(r2) == raw_resp(r1)
 
         # tell the server to change the etags of the response
         await async_client.get(url + "update_etag")
 
         r3 = await async_client.get(url + "etag")
-        assert raw_resp(r3) != raw_resp(r1)
         assert not cache_hit(r3)
+        assert raw_resp(r3) != raw_resp(r1)
 
         r4 = await async_client.get(url + "etag")
-        assert raw_resp(r4) == raw_resp(r3)
         assert cache_hit(r4)
+        assert raw_resp(r4) == raw_resp(r3)
 
 
 class TestDisabledETags(object):
     """Test our use of ETags when the response is stale and the
     response has an ETag.
     """
-
-    @pytest.fixture()
-    async def async_client(self):
-        async_client = AsyncClient()
-        async_client._transport = CachingTransport(
-            transport=async_client._transport,
-            cache=DictCache(),
-        )
-
-        yield async_client
-
-        await async_client.aclose()
 
     async def test_expired_etags_if_none_match_response(self, async_client, url):
         """Make sure an expired response that contains an ETag uses
@@ -110,7 +120,7 @@ class TestDisabledETags(object):
         r2 = await async_client.get(url + "etag")
         assert cache_hit(r2)
 
-        real_request = r2.ext["real_request"]
+        real_request = get_last_request(async_client)
         assert "if-none-match" in real_request.headers
         assert r2.status_code == 200
 
@@ -129,7 +139,7 @@ class TestReleaseConnection(object):
             timeout=Timeout(1, pool=0.1),
             limits=Limits(max_connections=1, max_keepalive_connections=1),
         )
-        async_client._transport = CachingTransport(
+        async_client._transport = AsyncCachingTransport(
             transport=async_client._transport,
         )
 

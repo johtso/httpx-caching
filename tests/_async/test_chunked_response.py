@@ -19,7 +19,7 @@ class TestChunkedResponses(object):
         """
         url = url + "stream"
         r = await async_client.get(url)
-
+        print(async_client._transport.cache.data)
         assert r.headers.get("transfer-encoding") == "chunked"
 
         r = await async_client.get(url, headers={"Cache-Control": "max-age=3600"})

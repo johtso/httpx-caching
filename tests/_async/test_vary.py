@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 import pytest
 
 from httpx_caching._cache import DictCache
-from httpx_caching._serializer import Serializer
 from tests.conftest import cache_hit, make_async_client
 
 pytestmark = pytest.mark.asyncio
@@ -15,12 +14,14 @@ pytestmark = pytest.mark.asyncio
 
 class TestVary(object):
     @pytest.fixture()
-    def async_client(self, url):
-        self.url = urljoin(url, "/vary_accept")
-        self.cache = DictCache()
-        self.serializer = Serializer()
-        async_client = make_async_client(cache=self.cache, serializer=self.serializer)
-        return async_client
+    def cache(self):
+        return DictCache()
+
+    @pytest.fixture()
+    async def async_client(self, cache):
+        async_client = make_async_client(cache=cache)
+        yield async_client
+        await async_client.aclose()
 
     def assert_cached_equal(self, cached, resp):
         print(cached, resp)
@@ -35,7 +36,7 @@ class TestVary(object):
             resp.status_code,
         ]
 
-    async def test_vary_example(self, async_client):
+    async def test_vary_example(self, async_client, cache, url):
         """RFC 2616 13.6
 
         When the cache receives a subsequent request whose Request-URI
@@ -50,23 +51,22 @@ class TestVary(object):
         in the Vary header are the same, it won't use the cached
         value.
         """
-        r = await async_client.get(self.url, headers={"foo": "a"})
-        c = self.serializer.loads(r.request.headers, self.cache.get(self.url))
+        vary_url = urljoin(url, "/vary_accept")
 
-        # make sure we cached it
-        self.assert_cached_equal(c, r)
+        r = await async_client.get(vary_url, headers={"foo": "a"})
+        cached_response, _vary_data = await cache.aget(vary_url)
 
         # make the same request
-        resp = await async_client.get(self.url, headers={"foo": "b"})
-        self.assert_cached_equal(c, resp)
+        resp = await async_client.get(vary_url, headers={"foo": "b"})
         assert cache_hit(resp)
 
         # make a similar request, changing the accept header
         resp = await async_client.get(
-            self.url, headers={"Accept": "text/plain, text/html", "foo": "c"}
+            vary_url, headers={"Accept": "text/plain, text/html", "foo": "c"}
         )
+
         with pytest.raises(AssertionError):
-            self.assert_cached_equal(c, resp)
+            self.assert_cached_equal(cached_response, resp)
         assert not cache_hit(resp)
 
         # Just confirming two things here:

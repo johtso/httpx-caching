@@ -55,6 +55,7 @@ class SimpleApp(object):
     def update_etag_string(self):
         self.etag_count += 1
         self.etag_string = '"ETAG-{}"'.format(self.etag_count)
+        print(f"etag string is now {self.etag_string}")
 
     def update_etag(self, env, start_response):
         self.update_etag_string()
@@ -66,7 +67,10 @@ class SimpleApp(object):
         return start_response("304 Not Modified", [])
 
     def etag(self, env, start_response):
+
         headers = [("Etag", self.etag_string)]
+        print(f'if none match: {env.get("HTTP_IF_NONE_MATCH")}')
+        print(f"etag_string: {self.etag_string}")
         if env.get("HTTP_IF_NONE_MATCH") == self.etag_string:
             start_response("304 Not Modified", headers)
             return []
