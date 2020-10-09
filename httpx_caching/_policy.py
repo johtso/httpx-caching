@@ -2,6 +2,7 @@ import calendar
 import dataclasses
 import logging
 import time
+import typing
 from copy import copy
 from dataclasses import dataclass
 from email.utils import parsedate_tz
@@ -83,20 +84,22 @@ class CachingPolicy:
 
     kwargs = dataclasses.asdict
 
+    @typing.no_type_check
     def run(
         self,
         io_callback: SyncIOCallback,
     ) -> Tuple[Response, Source]:
         # TODO: Shouldn't need to make mypy ignore this should I?
-        return sync_callback_generator(caching_policy, io_callback, self.kwargs())  # type: ignore
+        return sync_callback_generator(caching_policy, io_callback, self.kwargs())
 
+    @typing.no_type_check
     async def arun(
         self,
         io_callback: AsyncIOCallback,
     ) -> Tuple[Response, Source]:
         return await async_callback_generator(
-            caching_policy, io_callback, self.kwargs()  # type: ignore
-        )  # type: ignore
+            caching_policy, io_callback, self.kwargs()
+        )
 
 
 def caching_policy(
