@@ -24,8 +24,6 @@ unasync_files(
                 "asyncio": "sync",
                 "aclose": "close",
                 "aread": "read",
-                "AsyncCachingTransport": "SyncCachingTransport",
-                "async_vanilla_request": "sync_vanilla_request",
                 "arun": "run",
                 "aio_handler": "io_handler",
                 "arequest": "request",
@@ -33,7 +31,6 @@ unasync_files(
                 "aset": "set",
                 "adelete": "delete",
                 '"arequest"': '"request"',
-                # "async_enabled": "async_disabled",
             }
         ),
     ],

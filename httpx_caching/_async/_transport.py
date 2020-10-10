@@ -4,8 +4,7 @@ from typing import Iterable, Optional, Tuple, Union
 import httpcore
 import httpx
 
-from httpx_caching import _policy as protocol
-from httpx_caching._cache import DictCache
+from httpx_caching import AsyncDictCache, _policy as protocol
 from httpx_caching._heuristics import BaseHeuristic
 from httpx_caching._models import Response
 from httpx_caching._policy import CachingPolicy, Source
@@ -19,7 +18,7 @@ class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
     def __init__(
         self,
         transport: httpcore.AsyncHTTPTransport,
-        cache: DictCache = None,
+        cache: AsyncDictCache = None,
         cache_etags: bool = True,
         heuristic: BaseHeuristic = None,
         cacheable_methods: Iterable[str] = ("GET",),
@@ -33,7 +32,7 @@ class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
     ):
         self.transport = transport
 
-        self.cache = DictCache() if cache is None else cache
+        self.cache = AsyncDictCache() if cache is None else cache
         self.heuristic = heuristic
         self.cacheable_methods = cacheable_methods
         self.cacheable_status_codes = cacheable_status_codes

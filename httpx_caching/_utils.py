@@ -1,3 +1,4 @@
+import threading
 from typing import (
     AsyncIterator,
     Awaitable,
@@ -10,8 +11,12 @@ from typing import (
     Union,
 )
 
+import anyio
 import httpx
 from httpcore import AsyncByteStream, SyncByteStream
+
+AsyncLock = anyio.create_lock
+SyncLock = threading.Lock
 
 
 class ByteStreamWrapper(SyncByteStream, AsyncByteStream):

@@ -7,8 +7,7 @@ import pytest
 from freezegun import freeze_time
 from httpx import AsyncClient, Limits, Request, Timeout
 
-from httpx_caching import AsyncCachingTransport
-from httpx_caching._cache import DictCache
+from httpx_caching import AsyncCachingTransport, AsyncDictCache
 from tests.conftest import cache_hit, raw_resp
 
 pytestmark = pytest.mark.asyncio
@@ -35,7 +34,7 @@ async def async_client(mocker):
     async_client = AsyncClient()
     transport = AsyncCachingTransport(
         transport=async_client._transport,
-        cache=DictCache(),
+        cache=AsyncDictCache(),
     )
     async_client._transport = transport
 
@@ -83,7 +82,7 @@ class TestETag(object):
         """
         r1 = await async_client.get(url + "etag")
         # make sure we cached it
-        assert async_client._transport.cache.get(url + "etag")
+        assert await async_client._transport.cache.aget(url + "etag")
 
         # make the same request
         r2 = await async_client.get(url + "etag")
@@ -115,7 +114,7 @@ class TestDisabledETags(object):
         with freeze_time("2012-01-14"):
             await async_client.get(url + "etag")
 
-        assert async_client._transport.cache.get(url + "etag")
+        assert await async_client._transport.cache.aget(url + "etag")
 
         r2 = await async_client.get(url + "etag")
         assert cache_hit(r2)

@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 
 import pytest
 
-from httpx_caching._cache import DictCache
+from httpx_caching import AsyncDictCache
 from tests.conftest import cache_hit, make_async_client
 
 pytestmark = pytest.mark.asyncio
@@ -15,7 +15,7 @@ pytestmark = pytest.mark.asyncio
 class TestVary(object):
     @pytest.fixture()
     def cache(self):
-        return DictCache()
+        return AsyncDictCache()
 
     @pytest.fixture()
     async def async_client(self, cache):
