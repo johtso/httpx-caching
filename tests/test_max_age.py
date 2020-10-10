@@ -7,25 +7,14 @@ from __future__ import print_function
 import pytest
 from freezegun import freeze_time
 
-from httpx_caching._cache import DictCache
-
 from .conftest import cache_hit, make_client
-
-
-class NullSerializer(object):
-    def dumps(self, request, response, body):
-        return response
-
-    def loads(self, request, data):
-        return data
 
 
 class TestMaxAge(object):
     @pytest.fixture()
     def client(self, url):
         self.url = url
-        self.cache = DictCache()
-        client = make_client(cache=self.cache, serializer=NullSerializer())
+        client = make_client()
 
         return client
 
@@ -34,15 +23,17 @@ class TestMaxAge(object):
         Making sure when the client uses max-age=0 we don't get a
         cached copy even though we're still fresh.
         """
+        cache = client._transport.cache
+
         print("first request")
         r = client.get(self.url)
-        assert self.cache.get(self.url)
+        assert cache.get(self.url)
 
         print("second request")
         r = client.get(self.url, headers={"Cache-Control": "max-age=0"})
 
         # don't remove from the cache
-        assert self.cache.get(self.url)
+        assert cache.get(self.url)
         assert not cache_hit(r)
 
     def test_client_max_age_3600(self, client):
@@ -50,9 +41,10 @@ class TestMaxAge(object):
         Verify we get a cached value when the client has a
         reasonable max-age value.
         """
+        cache = client._transport.cache
         with freeze_time("2012-01-14"):
             r = client.get(self.url)
-            assert self.cache.get(self.url)
+            assert cache.get(self.url)
 
             # request that we don't want a new one unless
             r = client.get(self.url, headers={"Cache-Control": "max-age=3600"})

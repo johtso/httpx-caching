@@ -1,2 +1,3 @@
-httpx
+httpx==0.16.*
 msgpack
+anyio

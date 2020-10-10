@@ -1,6 +1,7 @@
 import dataclasses
+from typing import Union
 
-from httpcore import PlainByteStream, SyncByteStream
+from httpcore import AsyncByteStream, PlainByteStream, SyncByteStream
 from httpx import Headers
 
 
@@ -12,8 +13,8 @@ class Response:
 
     status_code: int
     headers: Headers
-    stream: SyncByteStream
-    ext: dict
+    stream: Union[SyncByteStream, AsyncByteStream]
+    ext: dict = dataclasses.field(default_factory=dict)
 
     @classmethod
     def from_raw(cls, raw_response):
