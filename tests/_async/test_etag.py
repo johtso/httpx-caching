@@ -21,7 +21,7 @@ def get_last_request(client):
         headers,
         stream,
         _ext,
-    ) = client._transport.transport.arequest.call_args.args
+    ) = client._transport.transport.arequest.call_args[0]
     return Request(
         method=method,
         url=url,
