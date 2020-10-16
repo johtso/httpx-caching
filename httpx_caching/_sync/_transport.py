@@ -1,8 +1,8 @@
-import typing
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple
 
 import httpcore
 import httpx
+from multimethod import multimethod
 
 from httpx_caching import SyncDictCache, _policy as protocol
 from httpx_caching._heuristics import BaseHeuristic
@@ -67,54 +67,53 @@ class SyncCachingTransport(httpcore.SyncHTTPTransport):
         response.ext["from_cache"] = source == Source.CACHE
         return response.to_raw()
 
-    @typing.no_type_check
-    def io_handler(
-        self, action: protocol.IOAction
-    ) -> Union[Tuple[Optional[Response], Optional[dict]], Optional[Response]]:
-        """
-        Takes an IOAction produced by the caching protocol and enacts it.
+    @multimethod
+    def io_handler(self, action):
+        raise NotImplementedError(f"Cannot handle {action}")
 
-        If asked to get a Response from the cache or remote server, it returns
-        that Response.
-        """
-        if isinstance(action, protocol.CacheGet):
-            return self.cache.get(action.key)
+    @io_handler.register
+    def _io_cache_get(
+        self, action: protocol.CacheGet
+    ) -> Tuple[Optional[Response], Optional[dict]]:
+        return self.cache.get(action.key)
 
-        elif isinstance(action, protocol.CacheDelete):
-            self.cache.delete(action.key)
-            return None
+    @io_handler.register
+    def _io_cache_delete(self, action: protocol.CacheDelete) -> None:
+        self.cache.delete(action.key)
+        return None
 
-        elif isinstance(action, protocol.CacheSet):
-            stream = action.response.stream
-            # TODO: we can probably just get rid of deferred?
-            if action.deferred and not isinstance(stream, httpcore.PlainByteStream):
-                return self.wrap_response_stream(
-                    action.key, action.response, action.vary_header_values
-                )
-            else:
-                stream = action.response.stream
-                assert isinstance(stream, httpcore.PlainByteStream)
-                response_body = stream._content
-                self.cache.set(
-                    action.key,
-                    action.response,
-                    action.vary_header_values,
-                    response_body,
-                )
-            return None
-
-        elif isinstance(action, protocol.MakeRequest):
-            args = request_to_raw(action.request)
-            raw_response = self.transport.request(*args)  # type: ignore
-            return Response.from_raw(raw_response)
-
-        elif isinstance(action, protocol.CloseResponseStream):
-            for _chunk in action.response.stream:  # type: ignore
-                pass
-            action.response.stream.close()  # type: ignore
-            return None
+    @io_handler.register
+    def _io_cache_set(self, action: protocol.CacheSet) -> Optional[Response]:
+        stream = action.response.stream
+        # TODO: we can probably just get rid of deferred?
+        if action.deferred and not isinstance(stream, httpcore.PlainByteStream):
+            return self.wrap_response_stream(
+                action.key, action.response, action.vary_header_values
+            )
         else:
-            raise ValueError(action)
+            stream = action.response.stream
+            assert isinstance(stream, httpcore.PlainByteStream)
+            response_body = stream._content
+            self.cache.set(
+                action.key,
+                action.response,
+                action.vary_header_values,
+                response_body,
+            )
+        return None
+
+    @io_handler.register
+    def _io_make_request(self, action: protocol.MakeRequest) -> Response:
+        args = request_to_raw(action.request)
+        raw_response = self.transport.request(*args)  # type: ignore
+        return Response.from_raw(raw_response)
+
+    @io_handler.register
+    def _io_close_response_stream(self, action: protocol.CloseResponseStream) -> None:
+        for _chunk in action.response.stream:  # type: ignore
+            pass
+        action.response.stream.close()  # type: ignore
+        return None
 
     def wrap_response_stream(
         self, key: str, response: Response, vary_header_values: dict
