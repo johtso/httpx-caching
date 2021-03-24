@@ -24,7 +24,7 @@ from httpx_caching import CachingClient
 client = AsyncClient()
 client = CachingClient(client)
 
-async client.get("http://example.com")
+await client.get("http://example.com")
 ```
 
 
