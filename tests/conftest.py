@@ -116,7 +116,7 @@ class SimpleApp(object):
 
 
 def cache_hit(resp):
-    return resp.ext["from_cache"]
+    return resp.extensions["from_cache"]
 
 
 @pytest.fixture(scope="session")
