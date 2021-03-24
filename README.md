@@ -12,8 +12,13 @@ This package adds caching functionality to [HTTPX](https://github.com/encode/htt
 
 Adapted from Eric Larson's fantastic [CacheControl](https://github.com/ionrock/cachecontrol) for [requests](https://requests.readthedocs.io/en/stable/).
 
-* Async compatible
-* Currently only supports in-memory cache storage
+Project goals:
+* Sans-io caching protocol
+* Support multiple http clients (currently only supports httpx)
+* Fully async compatible
+
+Limitations:
+* Currently only has in-memory cache storage
 
 **Usage:**
 
