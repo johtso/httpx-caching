@@ -20,7 +20,7 @@ def get_last_request(client):
         headers,
         stream,
         _ext,
-    ) = client._transport.transport.arequest.call_args[0]
+    ) = client._transport.transport.handle_async_request.call_args[0]
     return Request(
         method=method,
         url=url,
@@ -39,7 +39,9 @@ async def async_client(mocker):
     async_client._transport = transport
 
     mocker.patch.object(
-        transport.transport, "arequest", wraps=transport.transport.arequest
+        transport.transport,
+        "handle_async_request",
+        wraps=transport.transport.handle_async_request,
     )
 
     yield async_client
@@ -88,6 +90,12 @@ class TestETag(object):
         r2 = await async_client.get(url + "etag")
         assert cache_hit(r2)
         assert raw_resp(r2) == raw_resp(r1)
+
+        # make the same request a 3rd time to make sure we don't mess anything up
+        # after a cache hit
+        r3 = await async_client.get(url + "etag")
+        assert cache_hit(r3)
+        assert raw_resp(r3) == raw_resp(r1)
 
         # tell the server to change the etags of the response
         await async_client.get(url + "update_etag")

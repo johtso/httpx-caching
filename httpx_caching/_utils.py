@@ -1,9 +1,11 @@
 import threading
 from typing import (
+    AsyncIterable,
     AsyncIterator,
     Awaitable,
     Callable,
     Generator,
+    Iterable,
     Iterator,
     Optional,
     Tuple,
@@ -13,16 +15,16 @@ from typing import (
 
 import anyio
 import httpx
-from httpcore import AsyncByteStream, SyncByteStream
 
 AsyncLock = anyio.create_lock
 SyncLock = threading.Lock
 
 
-class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
+class ByteStreamWrapper:
     def __init__(
         self,
-        stream: Union[SyncByteStream, AsyncByteStream],
+        stream: Union[Iterable[bytes], AsyncIterable[bytes]],
+        stream_close: Optional[Callable],
         callback: Optional[Callable] = None,
     ) -> None:
         """
@@ -32,6 +34,7 @@ class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
         print("wrapping", stream)
         self.stream = stream
         self.callback = callback or (lambda *args, **kwargs: None)
+        self.stream_close = stream_close
 
         self.buffer = bytearray()
         self.callback_called = False
@@ -59,10 +62,12 @@ class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
         await self.a_on_read_finish()
 
     def close(self) -> None:
-        self.stream.close()  # type: ignore
+        if self.stream_close:
+            self.stream_close()  # type: ignore
 
     async def aclose(self) -> None:
-        await self.stream.aclose()  # type: ignore
+        if self.stream_close:
+            await self.stream_close()  # type: ignore
 
 
 YieldType = TypeVar("YieldType")
