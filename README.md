@@ -23,13 +23,19 @@ Limitations:
 **Usage:**
 
 ```python
+import asyncio
+
 from httpx import AsyncClient
 from httpx_caching import CachingClient
 
 client = AsyncClient()
 client = CachingClient(client)
 
-async client.get("http://example.com")
+async run_example():
+    await client.get("http://example.com")
+    
+loop = asyncio.get_event_loop()
+loop.run_until_complete(run_example())
 ```
 
 
