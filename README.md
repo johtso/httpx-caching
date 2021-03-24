@@ -19,6 +19,7 @@ Project goals:
 
 Limitations:
 * Currently only has in-memory cache storage
+* Test suite still uses a test server and mocking rather than taking advantage of the sans-io implmentation. 
 
 **Usage:**
 
