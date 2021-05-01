@@ -20,7 +20,7 @@ class TestSerializer(object):
                     "Cache-Control": "public",
                 },
                 "status_code": 200,
-                "ext": {},
+                "extensions": {},
             },
             "vary": {},
         }

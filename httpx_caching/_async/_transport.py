@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Tuple
+from typing import AsyncIterable, Iterable, Optional, Tuple
 
 import httpcore
 import httpx
@@ -12,12 +12,12 @@ from httpx_caching._types import RawHeaders, RawURL
 from httpx_caching._utils import ByteStreamWrapper, request_to_raw
 
 
-class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
+class AsyncCachingTransport(httpx.AsyncBaseTransport):
     invalidating_methods = {"PUT", "PATCH", "DELETE"}
 
     def __init__(
         self,
-        transport: httpcore.AsyncHTTPTransport,
+        transport: httpx.AsyncBaseTransport,
         cache: AsyncDictCache = None,
         cache_etags: bool = True,
         heuristic: BaseHeuristic = None,
@@ -38,14 +38,14 @@ class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
         self.cacheable_status_codes = cacheable_status_codes
         self.cache_etags = cache_etags
 
-    async def arequest(
+    async def handle_async_request(
         self,
         method: bytes,
         url: RawURL,
-        headers: RawHeaders = None,
-        stream: httpcore.AsyncByteStream = None,
-        ext: dict = None,
-    ) -> Tuple[int, RawHeaders, httpcore.AsyncByteStream, dict]:
+        headers: RawHeaders,
+        stream: AsyncIterable[bytes],
+        extensions: dict,
+    ) -> Tuple[int, RawHeaders, AsyncIterable[bytes], dict]:
 
         request = httpx.Request(
             method=method,
@@ -64,7 +64,7 @@ class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
 
         response, source = await caching_protocol.arun(self.aio_handler)
 
-        response.ext["from_cache"] = source == Source.CACHE
+        response.extensions["from_cache"] = source == Source.CACHE
         return response.to_raw()
 
     @multimethod
@@ -84,28 +84,27 @@ class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
 
     @aio_handler.register
     async def _io_cache_set(self, action: protocol.CacheSet) -> Optional[Response]:
-        stream = action.response.stream
-        # TODO: we can probably just get rid of deferred?
-        if action.deferred and not isinstance(stream, httpcore.PlainByteStream):
+        if action.deferred:
+            # This is a response with a body, so we need to wait for it to be read before we can cache it
             return self.wrap_response_stream(
                 action.key, action.response, action.vary_header_values
             )
         else:
             stream = action.response.stream
             assert isinstance(stream, httpcore.PlainByteStream)
-            response_body = stream._content
+            # TODO: Are we needlessly recaching the body here? Is this just a header change?
             await self.cache.aset(
                 action.key,
                 action.response,
                 action.vary_header_values,
-                response_body,
+                b"".join(stream),  # type: ignore
             )
         return None
 
     @aio_handler.register
     async def _io_make_request(self, action: protocol.MakeRequest) -> Response:
         args = request_to_raw(action.request)
-        raw_response = await self.transport.arequest(*args)  # type: ignore
+        raw_response = await self.transport.handle_async_request(*args)  # type: ignore
         return Response.from_raw(raw_response)
 
     @aio_handler.register
@@ -114,13 +113,17 @@ class AsyncCachingTransport(httpcore.AsyncHTTPTransport):
     ) -> None:
         async for _chunk in action.response.stream:  # type: ignore
             pass
-        await action.response.stream.aclose()  # type: ignore
+        aclose = action.response.extensions.get("aclose")
+        if aclose:
+            await aclose()  # type: ignore
         return None
 
     def wrap_response_stream(
         self, key: str, response: Response, vary_header_values: dict
     ) -> Response:
-        wrapped_stream = ByteStreamWrapper(response.stream)
+        wrapped_stream = ByteStreamWrapper(
+            response.stream, response.extensions.get("aclose")
+        )
         response.stream = wrapped_stream
 
         async def callback(response_body: bytes):
