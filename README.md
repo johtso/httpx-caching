@@ -18,8 +18,8 @@ Project goals:
 - [ ] Support multiple http clients (currently only supports httpx)
 
 Limitations:
-* Currently only has in-memory cache storage
-* Test suite still uses a test server and mocking rather than taking advantage of the sans-io implementation. 
+* Currently only has in-memory cache storage (async redis would be nice!)
+* Test suite was taken wholesale from CacheControl, so still uses a test server and mocking rather than taking advantage of the sans-io implementation. 
 
 **Usage:**
 
