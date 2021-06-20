@@ -5,8 +5,10 @@ pytest-cov
 pytest-asyncio
 pytest-mock
 mock
+types-mock
 cherrypy
 freezegun
+types-freezegun
 autoflake
 black
 isort
@@ -15,3 +17,4 @@ flake8
 flake8-bugbear
 mypy
 unasync
+types-dataclasses
