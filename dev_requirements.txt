@@ -15,6 +15,6 @@ isort
 autoflake
 flake8
 flake8-bugbear
-git+git://github.com/python/mypy@2ebdbca3b5afbfa1113f01b583522f4afcc4b3e3#egg=mypy
+mypy
 unasync
 types-dataclasses
