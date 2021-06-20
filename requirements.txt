@@ -1,4 +1,4 @@
-git+git://github.com/encode/httpx@master#egg=httpx
+httpx==0.18.*
 msgpack
 anyio
 multimethod
