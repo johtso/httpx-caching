@@ -32,7 +32,7 @@ from httpx_caching import CachingClient
 client = AsyncClient()
 client = CachingClient(client)
 
-async run_example():
+async def run_example():
     await client.get("http://example.com")
     
 loop = asyncio.get_event_loop()
