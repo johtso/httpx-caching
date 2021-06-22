@@ -1,7 +1,7 @@
-from typing import AsyncIterable, Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
-import httpcore
 import httpx
+from httpx import AsyncByteStream
 from multimethod import multimethod
 
 from httpx_caching import AsyncDictCache, _policy as protocol
@@ -43,9 +43,9 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
         method: bytes,
         url: RawURL,
         headers: RawHeaders,
-        stream: AsyncIterable[bytes],
+        stream: AsyncByteStream,
         extensions: dict,
-    ) -> Tuple[int, RawHeaders, AsyncIterable[bytes], dict]:
+    ) -> Tuple[int, RawHeaders, AsyncByteStream, dict]:
 
         request = httpx.Request(
             method=method,
@@ -91,7 +91,6 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
             )
         else:
             stream = action.response.stream
-            assert isinstance(stream, httpcore.PlainByteStream)
             # TODO: Are we needlessly recaching the body here? Is this just a header change?
             await self.cache.aset(
                 action.key,

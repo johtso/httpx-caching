@@ -141,6 +141,7 @@ class TestReleaseConnection(object):
     empty according to the HTTP spec) and release the connection.
     """
 
+    @pytest.mark.timeout(5)
     async def test_not_modified_releases_connection(self, url):
         async_client = AsyncClient(
             timeout=Timeout(1, pool=0.1),

@@ -1,7 +1,7 @@
 from typing import Iterable, Optional, Tuple
 
-import httpcore
 import httpx
+from httpx import SyncByteStream
 from multimethod import multimethod
 
 from httpx_caching import SyncDictCache, _policy as protocol
@@ -43,9 +43,9 @@ class SyncCachingTransport(httpx.BaseTransport):
         method: bytes,
         url: RawURL,
         headers: RawHeaders,
-        stream: Iterable[bytes],
+        stream: SyncByteStream,
         extensions: dict,
-    ) -> Tuple[int, RawHeaders, Iterable[bytes], dict]:
+    ) -> Tuple[int, RawHeaders, SyncByteStream, dict]:
 
         request = httpx.Request(
             method=method,
@@ -91,7 +91,6 @@ class SyncCachingTransport(httpx.BaseTransport):
             )
         else:
             stream = action.response.stream
-            assert isinstance(stream, httpcore.PlainByteStream)
             # TODO: Are we needlessly recaching the body here? Is this just a header change?
             self.cache.set(
                 action.key,

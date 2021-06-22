@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Optional, Tuple
 
-import httpcore
 import msgpack
+from httpx import ByteStream
 
 from ._models import Response
 
@@ -66,12 +66,12 @@ class Serializer(object):
 
         status_code = cached_response["status_code"]
         headers = cached_response["headers"]
-        stream = httpcore.PlainByteStream(cached_response["body"])
+        stream = ByteStream(cached_response["body"])
         extensions = cached_response["extensions"]
 
         response = Response.from_raw((status_code, headers, stream, extensions))
 
-        if response.headers.get("transfer-encoding", "") == "chunked":
+        if response.headers.get("transfer-encoding") == "chunked":
             response.headers.pop("transfer-encoding")
 
         return response, cached_data["vary"]

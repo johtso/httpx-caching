@@ -31,7 +31,6 @@ class ByteStreamWrapper:
         A wrapper around a stream that calls a callback once with
         the full contents of the stream after it has been fully read.
         """
-        print("wrapping", stream)
         self.stream = stream
         self.callback = callback or (lambda *args, **kwargs: None)
         self.stream_close = stream_close
@@ -84,13 +83,11 @@ async def async_callback_generator(
     try:
         yielded = next(gen)
         while True:
-            print("output:", yielded)
+            print("action:", yielded)
             to_send = await callback(yielded)
-            print("input:", to_send)
+            print("result:", to_send)
             yielded = gen.send(to_send)
     except StopIteration as e:
-        print("result:", e.value)
-        print()
         return e.value
 
 
@@ -103,7 +100,9 @@ def sync_callback_generator(
     try:
         yielded = next(gen)
         while True:
+            print("action:", yielded)
             to_send = callback(yielded)
+            print("result:", to_send)
             yielded = gen.send(to_send)
     except StopIteration as e:
         return e.value

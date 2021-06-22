@@ -4,6 +4,7 @@ pytest
 pytest-cov
 pytest-asyncio
 pytest-mock
+pytest-timeout
 mock
 types-mock
 cherrypy
