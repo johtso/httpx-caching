@@ -1,11 +1,9 @@
 import threading
 from typing import (
-    AsyncIterable,
     AsyncIterator,
     Awaitable,
     Callable,
     Generator,
-    Iterable,
     Iterator,
     Optional,
     Tuple,
@@ -23,8 +21,7 @@ SyncLock = threading.Lock
 class ByteStreamWrapper:
     def __init__(
         self,
-        stream: Union[Iterable[bytes], AsyncIterable[bytes]],
-        stream_close: Optional[Callable],
+        stream: Union[httpx.SyncByteStream, httpx.AsyncByteStream],
         callback: Optional[Callable] = None,
     ) -> None:
         """
@@ -33,7 +30,6 @@ class ByteStreamWrapper:
         """
         self.stream = stream
         self.callback = callback or (lambda *args, **kwargs: None)
-        self.stream_close = stream_close
 
         self.buffer = bytearray()
         self.callback_called = False
@@ -43,7 +39,7 @@ class ByteStreamWrapper:
             self.callback(bytes(self.buffer))
             self.callback_called = True
 
-    async def a_on_read_finish(self):
+    async def _a_on_read_finish(self):
         if not self.callback_called:
             await self.callback(bytes(self.buffer))
             self.callback_called = True
@@ -58,15 +54,13 @@ class ByteStreamWrapper:
         async for chunk in self.stream:  # type: ignore
             self.buffer.extend(chunk)
             yield chunk
-        await self.a_on_read_finish()
+        await self._a_on_read_finish()
 
     def close(self) -> None:
-        if self.stream_close:
-            self.stream_close()  # type: ignore
+        self.stream.close()  # type: ignore
 
     async def aclose(self) -> None:
-        if self.stream_close:
-            await self.stream_close()  # type: ignore
+        await self.stream.aclose()  # type: ignore
 
 
 YieldType = TypeVar("YieldType")

@@ -1,7 +1,9 @@
 import dataclasses
-from typing import AsyncIterable, Iterable, Union
+from typing import Union
 
-from httpx import Headers
+from httpx import ByteStream, Headers
+
+from ._utils import ByteStreamWrapper
 
 
 @dataclasses.dataclass
@@ -12,7 +14,7 @@ class Response:
 
     status_code: int
     headers: Headers
-    stream: Union[Iterable[bytes], AsyncIterable[bytes]]
+    stream: Union[ByteStream, ByteStreamWrapper]
     extensions: dict = dataclasses.field(default_factory=dict)
 
     @classmethod

@@ -118,9 +118,8 @@ class SyncCachingTransport(httpx.BaseTransport):
     def wrap_response_stream(
         self, key: str, response: Response, vary_header_values: dict
     ) -> Response:
-        wrapped_stream = ByteStreamWrapper(
-            response.stream, response.extensions.get("close")
-        )
+        response_stream: SyncByteStream = response.stream  # type: ignore
+        wrapped_stream = ByteStreamWrapper(response_stream)
         response.stream = wrapped_stream
 
         def callback(response_body: bytes):

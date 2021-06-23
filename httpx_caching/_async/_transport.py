@@ -120,9 +120,8 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
     def wrap_response_stream(
         self, key: str, response: Response, vary_header_values: dict
     ) -> Response:
-        wrapped_stream = ByteStreamWrapper(
-            response.stream, response.extensions.get("aclose")
-        )
+        response_stream: AsyncByteStream = response.stream  # type: ignore
+        wrapped_stream = ByteStreamWrapper(response_stream)
         response.stream = wrapped_stream
 
         async def callback(response_body: bytes):
