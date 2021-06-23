@@ -1,7 +1,7 @@
 from typing import Iterable, Optional, Tuple
 
-import httpcore
 import httpx
+from httpx import SyncByteStream
 from multimethod import multimethod
 
 from httpx_caching import SyncDictCache, _policy as protocol
@@ -12,12 +12,12 @@ from httpx_caching._types import RawHeaders, RawURL
 from httpx_caching._utils import ByteStreamWrapper, request_to_raw
 
 
-class SyncCachingTransport(httpcore.SyncHTTPTransport):
+class SyncCachingTransport(httpx.BaseTransport):
     invalidating_methods = {"PUT", "PATCH", "DELETE"}
 
     def __init__(
         self,
-        transport: httpcore.SyncHTTPTransport,
+        transport: httpx.BaseTransport,
         cache: SyncDictCache = None,
         cache_etags: bool = True,
         heuristic: BaseHeuristic = None,
@@ -38,14 +38,14 @@ class SyncCachingTransport(httpcore.SyncHTTPTransport):
         self.cacheable_status_codes = cacheable_status_codes
         self.cache_etags = cache_etags
 
-    def request(
+    def handle_request(
         self,
         method: bytes,
         url: RawURL,
-        headers: RawHeaders = None,
-        stream: httpcore.SyncByteStream = None,
-        ext: dict = None,
-    ) -> Tuple[int, RawHeaders, httpcore.SyncByteStream, dict]:
+        headers: RawHeaders,
+        stream: SyncByteStream,
+        extensions: dict,
+    ) -> Tuple[int, RawHeaders, SyncByteStream, dict]:
 
         request = httpx.Request(
             method=method,
@@ -64,7 +64,7 @@ class SyncCachingTransport(httpcore.SyncHTTPTransport):
 
         response, source = caching_protocol.run(self.io_handler)
 
-        response.ext["from_cache"] = source == Source.CACHE
+        response.extensions["from_cache"] = source == Source.CACHE
         return response.to_raw()
 
     @multimethod
@@ -84,41 +84,40 @@ class SyncCachingTransport(httpcore.SyncHTTPTransport):
 
     @io_handler.register
     def _io_cache_set(self, action: protocol.CacheSet) -> Optional[Response]:
-        stream = action.response.stream
-        # TODO: we can probably just get rid of deferred?
-        if action.deferred and not isinstance(stream, httpcore.PlainByteStream):
+        if action.deferred:
+            # This is a response with a body, so we need to wait for it to be read before we can cache it
             return self.wrap_response_stream(
                 action.key, action.response, action.vary_header_values
             )
         else:
             stream = action.response.stream
-            assert isinstance(stream, httpcore.PlainByteStream)
-            response_body = stream._content
+            # TODO: Are we needlessly recaching the body here? Is this just a header change?
             self.cache.set(
                 action.key,
                 action.response,
                 action.vary_header_values,
-                response_body,
+                b"".join(stream),  # type: ignore
             )
         return None
 
     @io_handler.register
     def _io_make_request(self, action: protocol.MakeRequest) -> Response:
         args = request_to_raw(action.request)
-        raw_response = self.transport.request(*args)  # type: ignore
+        raw_response = self.transport.handle_request(*args)  # type: ignore
         return Response.from_raw(raw_response)
 
     @io_handler.register
     def _io_close_response_stream(self, action: protocol.CloseResponseStream) -> None:
         for _chunk in action.response.stream:  # type: ignore
             pass
-        action.response.stream.close()  # type: ignore
+        action.response.stream.close()
         return None
 
     def wrap_response_stream(
         self, key: str, response: Response, vary_header_values: dict
     ) -> Response:
-        wrapped_stream = ByteStreamWrapper(response.stream)
+        response_stream: SyncByteStream = response.stream  # type: ignore
+        wrapped_stream = ByteStreamWrapper(response_stream)
         response.stream = wrapped_stream
 
         def callback(response_body: bytes):

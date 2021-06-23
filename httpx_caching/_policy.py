@@ -1,5 +1,4 @@
 import calendar
-import dataclasses
 import logging
 import time
 import typing
@@ -9,8 +8,7 @@ from email.utils import parsedate_tz
 from enum import Enum
 from typing import Awaitable, Callable, Generator, Iterable, Optional, Tuple, Union
 
-import httpcore
-from httpx import Headers, Request, codes
+from httpx import ByteStream, Headers, Request, codes
 
 from ._heuristics import BaseHeuristic
 from ._models import Response
@@ -82,15 +80,23 @@ class CachingPolicy:
     cacheable_methods: Iterable[str]
     cacheable_status_codes: Iterable[int]
 
-    kwargs = dataclasses.asdict
-
     @typing.no_type_check
     def run(
         self,
         io_callback: SyncIOCallback,
     ) -> Tuple[Response, Source]:
         # TODO: Shouldn't need to make mypy ignore this should I?
-        return sync_callback_generator(caching_policy, io_callback, self.kwargs())
+        return sync_callback_generator(
+            caching_policy,
+            io_callback,
+            dict(
+                request=self.request,
+                cache_etags=self.cache_etags,
+                heuristic=self.heuristic,
+                cacheable_methods=self.cacheable_methods,
+                cacheable_status_codes=self.cacheable_status_codes,
+            ),
+        )
 
     @typing.no_type_check
     async def arun(
@@ -98,7 +104,15 @@ class CachingPolicy:
         io_callback: AsyncIOCallback,
     ) -> Tuple[Response, Source]:
         return await async_callback_generator(
-            caching_policy, io_callback, self.kwargs()
+            caching_policy,
+            io_callback,
+            dict(
+                request=self.request,
+                cache_etags=self.cache_etags,
+                heuristic=self.heuristic,
+                cacheable_methods=self.cacheable_methods,
+                cacheable_status_codes=self.cacheable_status_codes,
+            ),
         )
 
 
@@ -404,7 +418,7 @@ def cache_response_action(
             server_response.status_code,
             server_response.headers,
             # TODO: This is naff, maybe we just use httpx.Response
-            httpcore.PlainByteStream(response_body),
+            ByteStream(response_body),
         )
         vary_header_values = get_vary_headers(request.headers, response)
         return CacheSet(cache_key, response, vary_header_values)

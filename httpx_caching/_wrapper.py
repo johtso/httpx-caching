@@ -1,4 +1,4 @@
-import httpcore
+import httpx
 
 from httpx_caching._async._transport import AsyncCachingTransport
 from httpx_caching._sync._transport import SyncCachingTransport
@@ -11,7 +11,7 @@ def CachingClient(client: AnyClient, *args, **kwargs) -> AnyClient:
     if "transport" not in kwargs:
         kwargs["transport"] = current_transport
 
-    is_async = isinstance(current_transport, httpcore.AsyncHTTPTransport)
+    is_async = isinstance(current_transport, httpx.AsyncBaseTransport)
     client._transport = (AsyncCachingTransport if is_async else SyncCachingTransport)(
         *args, **kwargs
     )

@@ -3,25 +3,26 @@
 # SPDX-License-Identifier: Apache-2.0
 from typing import Optional, Tuple
 
-import httpcore
 import msgpack
+from httpx import ByteStream
 
 from ._models import Response
 
 
 class Serializer(object):
     def dumps(self, response: Response, vary_header_data: dict, response_body: bytes):
-        # TODO: kludge while we put unserializable requests in ext
-        ext = response.ext.copy()
-        ext.pop("real_request", None)
+        extensions = response.extensions.copy()
+        extensions.pop("real_request", None)
+        extensions.pop("close", None)
+        extensions.pop("aclose", None)
 
         data = {
             "response": {
                 "body": response_body,
                 "headers": response.headers.raw,
                 "status_code": response.status_code,
-                # TODO: Make sure we don't explode if there's something naughty in ext
-                "ext": ext,
+                # TODO: Make sure we don't explode if there's something naughty in extensions
+                "extensions": extensions,
             },
             "vary": vary_header_data,
         }
@@ -65,12 +66,12 @@ class Serializer(object):
 
         status_code = cached_response["status_code"]
         headers = cached_response["headers"]
-        stream = httpcore.PlainByteStream(cached_response["body"])
-        ext = cached_response["ext"]
+        stream = ByteStream(cached_response["body"])
+        extensions = cached_response["extensions"]
 
-        response = Response.from_raw((status_code, headers, stream, ext))
+        response = Response.from_raw((status_code, headers, stream, extensions))
 
-        if response.headers.get("transfer-encoding", "") == "chunked":
+        if response.headers.get("transfer-encoding") == "chunked":
             response.headers.pop("transfer-encoding")
 
         return response, cached_data["vary"]

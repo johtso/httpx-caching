@@ -20,7 +20,7 @@ def get_last_request(client):
         headers,
         stream,
         _ext,
-    ) = client._transport.transport.arequest.call_args[0]
+    ) = client._transport.transport.handle_async_request.call_args[0]
     return Request(
         method=method,
         url=url,
@@ -39,7 +39,9 @@ async def async_client(mocker):
     async_client._transport = transport
 
     mocker.patch.object(
-        transport.transport, "arequest", wraps=transport.transport.arequest
+        transport.transport,
+        "handle_async_request",
+        wraps=transport.transport.handle_async_request,
     )
 
     yield async_client
@@ -89,16 +91,22 @@ class TestETag(object):
         assert cache_hit(r2)
         assert raw_resp(r2) == raw_resp(r1)
 
+        # make the same request a 3rd time to make sure we don't mess anything up
+        # after a cache hit
+        r3 = await async_client.get(url + "etag")
+        assert cache_hit(r3)
+        assert raw_resp(r3) == raw_resp(r1)
+
         # tell the server to change the etags of the response
         await async_client.get(url + "update_etag")
 
-        r3 = await async_client.get(url + "etag")
-        assert not cache_hit(r3)
-        assert raw_resp(r3) != raw_resp(r1)
-
         r4 = await async_client.get(url + "etag")
-        assert cache_hit(r4)
-        assert raw_resp(r4) == raw_resp(r3)
+        assert not cache_hit(r4)
+        assert raw_resp(r4) != raw_resp(r1)
+
+        r5 = await async_client.get(url + "etag")
+        assert cache_hit(r5)
+        assert raw_resp(r5) == raw_resp(r4)
 
 
 class TestDisabledETags(object):
@@ -133,6 +141,7 @@ class TestReleaseConnection(object):
     empty according to the HTTP spec) and release the connection.
     """
 
+    @pytest.mark.timeout(5)
     async def test_not_modified_releases_connection(self, url):
         async_client = AsyncClient(
             timeout=Timeout(1, pool=0.1),

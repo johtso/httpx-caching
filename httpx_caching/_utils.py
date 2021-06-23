@@ -13,23 +13,21 @@ from typing import (
 
 import anyio
 import httpx
-from httpcore import AsyncByteStream, SyncByteStream
 
-AsyncLock = anyio.create_lock
+AsyncLock = anyio.Lock
 SyncLock = threading.Lock
 
 
-class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
+class ByteStreamWrapper:
     def __init__(
         self,
-        stream: Union[SyncByteStream, AsyncByteStream],
+        stream: Union[httpx.SyncByteStream, httpx.AsyncByteStream],
         callback: Optional[Callable] = None,
     ) -> None:
         """
         A wrapper around a stream that calls a callback once with
         the full contents of the stream after it has been fully read.
         """
-        print("wrapping", stream)
         self.stream = stream
         self.callback = callback or (lambda *args, **kwargs: None)
 
@@ -41,7 +39,7 @@ class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
             self.callback(bytes(self.buffer))
             self.callback_called = True
 
-    async def a_on_read_finish(self):
+    async def _a_on_read_finish(self):
         if not self.callback_called:
             await self.callback(bytes(self.buffer))
             self.callback_called = True
@@ -56,7 +54,7 @@ class ByteStreamWrapper(SyncByteStream, AsyncByteStream):
         async for chunk in self.stream:  # type: ignore
             self.buffer.extend(chunk)
             yield chunk
-        await self.a_on_read_finish()
+        await self._a_on_read_finish()
 
     def close(self) -> None:
         self.stream.close()  # type: ignore
@@ -79,13 +77,11 @@ async def async_callback_generator(
     try:
         yielded = next(gen)
         while True:
-            print("output:", yielded)
+            print("action:", yielded)
             to_send = await callback(yielded)
-            print("input:", to_send)
+            print("result:", to_send)
             yielded = gen.send(to_send)
     except StopIteration as e:
-        print("result:", e.value)
-        print()
         return e.value
 
 
@@ -98,7 +94,9 @@ def sync_callback_generator(
     try:
         yielded = next(gen)
         while True:
+            print("action:", yielded)
             to_send = callback(yielded)
+            print("result:", to_send)
             yielded = gen.send(to_send)
     except StopIteration as e:
         return e.value
