@@ -110,9 +110,7 @@ class SyncCachingTransport(httpx.BaseTransport):
     def _io_close_response_stream(self, action: protocol.CloseResponseStream) -> None:
         for _chunk in action.response.stream:  # type: ignore
             pass
-        close = action.response.extensions.get("close")
-        if close:
-            close()  # type: ignore
+        action.response.stream.close()
         return None
 
     def wrap_response_stream(

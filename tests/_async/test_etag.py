@@ -100,13 +100,13 @@ class TestETag(object):
         # tell the server to change the etags of the response
         await async_client.get(url + "update_etag")
 
-        r3 = await async_client.get(url + "etag")
-        assert not cache_hit(r3)
-        assert raw_resp(r3) != raw_resp(r1)
-
         r4 = await async_client.get(url + "etag")
-        assert cache_hit(r4)
-        assert raw_resp(r4) == raw_resp(r3)
+        assert not cache_hit(r4)
+        assert raw_resp(r4) != raw_resp(r1)
+
+        r5 = await async_client.get(url + "etag")
+        assert cache_hit(r5)
+        assert raw_resp(r5) == raw_resp(r4)
 
 
 class TestDisabledETags(object):

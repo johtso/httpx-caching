@@ -112,9 +112,7 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
     ) -> None:
         async for _chunk in action.response.stream:  # type: ignore
             pass
-        aclose = action.response.extensions.get("aclose")
-        if aclose:
-            await aclose()  # type: ignore
+        await action.response.stream.aclose()
         return None
 
     def wrap_response_stream(
