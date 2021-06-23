@@ -16,7 +16,7 @@ from typing import (
 import anyio
 import httpx
 
-AsyncLock = anyio.create_lock
+AsyncLock = anyio.Lock
 SyncLock = threading.Lock
 
 
