@@ -5,7 +5,7 @@
 
 import pytest
 from freezegun import freeze_time
-from httpx import AsyncClient, Limits, Request, Timeout
+from httpx import AsyncClient, Limits, Timeout
 
 from httpx_caching import AsyncCachingTransport, AsyncDictCache
 from tests.conftest import cache_hit, raw_resp
@@ -14,19 +14,7 @@ pytestmark = pytest.mark.asyncio
 
 
 def get_last_request(client):
-    (
-        method,
-        url,
-        headers,
-        stream,
-        _ext,
-    ) = client._transport.transport.handle_async_request.call_args[0]
-    return Request(
-        method=method,
-        url=url,
-        headers=headers,
-        stream=stream,
-    )
+    return client._transport.transport.handle_async_request.call_args[0][0]
 
 
 @pytest.fixture()

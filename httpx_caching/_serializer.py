@@ -15,6 +15,7 @@ class Serializer(object):
         extensions.pop("real_request", None)
         extensions.pop("close", None)
         extensions.pop("aclose", None)
+        extensions.pop("network_stream", None)
 
         data = {
             "response": {

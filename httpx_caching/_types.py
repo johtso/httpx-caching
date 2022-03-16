@@ -1,10 +1,6 @@
-from typing import List, Optional, Tuple, TypeVar, Union
+from typing import TypeVar, Union
 
-from httpcore import AsyncHTTPTransport, SyncHTTPTransport
-from httpx import AsyncClient, Client
-
-RawURL = Tuple[bytes, bytes, Optional[int], bytes]
-RawHeaders = List[Tuple[bytes, bytes]]
+from httpx import AsyncClient, AsyncHTTPTransport, Client, HTTPTransport
 
 AnyClient = TypeVar("AnyClient", Client, AsyncClient)
-AnyTransport = Union[SyncHTTPTransport, AsyncHTTPTransport]
+AnyTransport = Union[HTTPTransport, AsyncHTTPTransport]

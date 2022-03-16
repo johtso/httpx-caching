@@ -18,7 +18,7 @@ AsyncLock = anyio.Lock
 SyncLock = threading.Lock
 
 
-class ByteStreamWrapper:
+class ByteStreamWrapper(httpx.ByteStream):
     def __init__(
         self,
         stream: Union[httpx.SyncByteStream, httpx.AsyncByteStream],

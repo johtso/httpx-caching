@@ -19,6 +19,7 @@ unasync_files(
             todir="/_sync/",
             additional_replacements={
                 "AsyncBaseTransport": "BaseTransport",
+                "AsyncHTTPTransport": "HTTPTransport",
                 "async_client": "client",
                 "AsyncClient": "Client",
                 "make_async_client": "make_client",
