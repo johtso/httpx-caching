@@ -1,4 +1,4 @@
-httpx==0.18.*
+httpx==0.22.*
 msgpack
 anyio
 multimethod
