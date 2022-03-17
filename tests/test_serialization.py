@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import httpx
 import msgpack
 
 from httpx_caching._models import Response
@@ -33,7 +34,12 @@ class TestSerializer(object):
 
     def test_dumps(self):
         assert self.serializer.dumps(
-            Response.from_raw((200, {}, b"foo", {})),
+            Response(
+                status_code=200,
+                headers=httpx.Headers(),
+                stream=httpx.ByteStream(b"foo"),
+                extensions={},
+            ),
             {},
             b"foo",
         )
