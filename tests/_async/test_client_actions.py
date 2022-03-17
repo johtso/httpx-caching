@@ -8,8 +8,6 @@ import pytest
 from httpx_caching import AsyncDictCache
 from tests.conftest import cache_hit
 
-pytestmark = pytest.mark.asyncio
-
 
 class TestClientActions(object):
     async def test_get_caches(self, url, async_client):

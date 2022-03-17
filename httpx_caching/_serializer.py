@@ -4,7 +4,7 @@
 from typing import Optional, Tuple
 
 import msgpack
-from httpx import ByteStream
+from httpx import ByteStream, Headers
 
 from ._models import Response
 
@@ -15,6 +15,7 @@ class Serializer(object):
         extensions.pop("real_request", None)
         extensions.pop("close", None)
         extensions.pop("aclose", None)
+        extensions.pop("network_stream", None)
 
         data = {
             "response": {
@@ -69,7 +70,12 @@ class Serializer(object):
         stream = ByteStream(cached_response["body"])
         extensions = cached_response["extensions"]
 
-        response = Response.from_raw((status_code, headers, stream, extensions))
+        response = Response(
+            status_code=status_code,
+            headers=Headers(headers),
+            stream=stream,
+            extensions=extensions,
+        )
 
         if response.headers.get("transfer-encoding") == "chunked":
             response.headers.pop("transfer-encoding")

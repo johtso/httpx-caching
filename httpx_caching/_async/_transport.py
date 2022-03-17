@@ -1,15 +1,13 @@
 from typing import Iterable, Optional, Tuple
 
 import httpx
-from httpx import AsyncByteStream
 from multimethod import multimethod
 
 from httpx_caching import AsyncDictCache, _policy as protocol
 from httpx_caching._heuristics import BaseHeuristic
 from httpx_caching._models import Response
 from httpx_caching._policy import CachingPolicy, Source
-from httpx_caching._types import RawHeaders, RawURL
-from httpx_caching._utils import ByteStreamWrapper, request_to_raw
+from httpx_caching._utils import ByteStreamWrapper
 
 
 class AsyncCachingTransport(httpx.AsyncBaseTransport):
@@ -40,19 +38,8 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
 
     async def handle_async_request(
         self,
-        method: bytes,
-        url: RawURL,
-        headers: RawHeaders,
-        stream: AsyncByteStream,
-        extensions: dict,
-    ) -> Tuple[int, RawHeaders, AsyncByteStream, dict]:
-
-        request = httpx.Request(
-            method=method,
-            url=url,
-            headers=headers,
-            stream=stream,
-        )
+        request: httpx.Request,
+    ) -> httpx.Response:
 
         caching_protocol = CachingPolicy(
             request=request,
@@ -65,7 +52,13 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
         response, source = await caching_protocol.arun(self.aio_handler)
 
         response.extensions["from_cache"] = source == Source.CACHE
-        return response.to_raw()
+        real_response = httpx.Response(
+            status_code=response.status_code,
+            headers=response.headers,
+            stream=response.stream,
+            extensions=response.extensions,
+        )
+        return real_response
 
     @multimethod
     async def aio_handler(self, action):
@@ -102,23 +95,25 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
 
     @aio_handler.register
     async def _io_make_request(self, action: protocol.MakeRequest) -> Response:
-        args = request_to_raw(action.request)
-        raw_response = await self.transport.handle_async_request(*args)  # type: ignore
-        return Response.from_raw(raw_response)
+        response = await self.transport.handle_async_request(action.request)  # type: ignore
+        return Response(
+            status_code=response.status_code,
+            headers=response.headers,
+            stream=response.stream,  # type: ignore
+            extensions=response.extensions,
+        )
 
     @aio_handler.register
     async def _io_close_response_stream(
         self, action: protocol.CloseResponseStream
     ) -> None:
-        async for _chunk in action.response.stream:  # type: ignore
-            pass
         await action.response.stream.aclose()
         return None
 
     def wrap_response_stream(
         self, key: str, response: Response, vary_header_values: dict
     ) -> Response:
-        response_stream: AsyncByteStream = response.stream  # type: ignore
+        response_stream: httpx.AsyncByteStream = response.stream  # type: ignore
         wrapped_stream = ByteStreamWrapper(response_stream)
         response.stream = wrapped_stream
 

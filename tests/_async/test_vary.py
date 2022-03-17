@@ -9,8 +9,6 @@ import pytest
 from httpx_caching import AsyncDictCache
 from tests.conftest import cache_hit, make_async_client
 
-pytestmark = pytest.mark.asyncio
-
 
 class TestVary(object):
     @pytest.fixture()
