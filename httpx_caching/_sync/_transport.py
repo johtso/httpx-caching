@@ -105,8 +105,6 @@ class SyncCachingTransport(httpx.BaseTransport):
 
     @io_handler.register
     def _io_close_response_stream(self, action: protocol.CloseResponseStream) -> None:
-        for _chunk in action.response.stream:  # type: ignore
-            pass
         action.response.stream.close()
         return None
 

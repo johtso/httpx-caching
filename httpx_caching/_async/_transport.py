@@ -107,8 +107,6 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
     async def _io_close_response_stream(
         self, action: protocol.CloseResponseStream
     ) -> None:
-        async for _chunk in action.response.stream:  # type: ignore
-            pass
         await action.response.stream.aclose()
         return None
 
