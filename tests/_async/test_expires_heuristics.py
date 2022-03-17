@@ -9,7 +9,6 @@ from email.utils import formatdate, parsedate
 from pprint import pprint
 
 import httpx
-import pytest
 from httpx import Headers
 from mock import Mock
 
@@ -21,8 +20,6 @@ from httpx_caching._heuristics import (
     OneDayCacheHeuristic,
 )
 from tests.conftest import cache_hit, make_async_client
-
-pytestmark = pytest.mark.asyncio
 
 
 class TestHeuristicWithoutWarning(object):
@@ -121,7 +118,6 @@ def datetime_to_header(dt):
     return formatdate(calendar.timegm(dt.timetuple()))
 
 
-@pytest.mark.sync
 class TestModifiedUnitTests(object):
     def last_modified(self, period):
         return time.strftime(TIME_FMT, time.gmtime(self.time_now - period))

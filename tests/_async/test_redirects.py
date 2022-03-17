@@ -5,11 +5,8 @@
 """
 Test for supporting redirect caches as needed.
 """
-import pytest
 
 from tests.conftest import cache_hit, make_async_client
-
-pytestmark = pytest.mark.asyncio
 
 
 class TestPermanentRedirects(object):

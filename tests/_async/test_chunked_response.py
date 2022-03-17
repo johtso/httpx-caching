@@ -4,11 +4,7 @@
 """
 Test for supporting streamed responses (Transfer-Encoding: chunked)
 """
-import pytest
-
 from tests.conftest import cache_hit
-
-pytestmark = pytest.mark.asyncio
 
 
 class TestChunkedResponses(object):

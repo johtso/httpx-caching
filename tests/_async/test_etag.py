@@ -10,8 +10,6 @@ from httpx import AsyncClient, Limits, Timeout
 from httpx_caching import AsyncCachingTransport, AsyncDictCache
 from tests.conftest import cache_hit, raw_resp
 
-pytestmark = pytest.mark.asyncio
-
 
 def get_last_request(client):
     return client._transport.transport.handle_async_request.call_args[0][0]
