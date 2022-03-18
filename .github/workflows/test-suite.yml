@@ -27,6 +27,8 @@ jobs:
         run: "scripts/check"
       - name: "Generate sync code"
         run: "scripts/compile"
+      - name: "Build package"
+        run: "scripts/build"
       - name: "Run tests"
         run: "scripts/test"
       - name: "Enforce coverage"
