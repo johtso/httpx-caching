@@ -126,7 +126,7 @@ def caching_policy(
     cached_response, evaluation = yield from try_from_cache_policy(
         request, cacheable_methods
     )
-    print(f"evaluation: {evaluation}")
+    logger.debug(f"evaluation: {evaluation}")
     if cached_response and evaluation == Evaluation.GOOD:
         return cached_response, Source.CACHE
 
@@ -271,7 +271,7 @@ def try_from_server_policy(
     cacheable_methods: Iterable[str],
 ) -> Generator[IOAction, Response, Tuple[Response, Source]]:
     cache_key = get_cache_key(request)
-    print("we have this from the cache:", cached_response)
+    logger.debug("we have this from the cache:", cached_response)
     updated_headers = request.headers.copy()
     if cached_response:
         # Add conditional headers based on cached response

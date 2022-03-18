@@ -1,3 +1,4 @@
+import logging
 import threading
 from typing import (
     AsyncIterator,
@@ -13,6 +14,8 @@ from typing import (
 
 import anyio
 import httpx
+
+logger = logging.getLogger(__name__)
 
 AsyncLock = anyio.Lock
 SyncLock = threading.Lock
@@ -77,9 +80,9 @@ async def async_callback_generator(
     try:
         yielded = next(gen)
         while True:
-            print("action:", yielded)
+            logger.debug("action:", yielded)
             to_send = await callback(yielded)
-            print("result:", to_send)
+            logger.debug("result:", to_send)
             yielded = gen.send(to_send)
     except StopIteration as e:
         return e.value
@@ -94,9 +97,9 @@ def sync_callback_generator(
     try:
         yielded = next(gen)
         while True:
-            print("action:", yielded)
+            logger.debug("action:", yielded)
             to_send = callback(yielded)
-            print("result:", to_send)
+            logger.debug("result:", to_send)
             yielded = gen.send(to_send)
     except StopIteration as e:
         return e.value
