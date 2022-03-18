@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, Optional, Tuple
 
 import httpx
@@ -8,6 +9,8 @@ from httpx_caching._heuristics import BaseHeuristic
 from httpx_caching._models import Response
 from httpx_caching._policy import CachingPolicy, Source
 from httpx_caching._utils import ByteStreamWrapper
+
+logger = logging.getLogger(__name__)
 
 
 class AsyncCachingTransport(httpx.AsyncBaseTransport):
@@ -118,7 +121,7 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
         response.stream = wrapped_stream
 
         async def callback(response_body: bytes):
-            print("saving to cache:", key)
+            logger.debug("saving to cache:", key)
             await self.cache.aset(key, response, vary_header_values, response_body)
 
         response.stream.callback = callback
