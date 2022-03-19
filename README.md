@@ -4,6 +4,9 @@
 <a href="https://github.com/johtso/httpx-caching/actions">
     <img src="https://github.com/johtso/httpx-caching/workflows/Test%20Suite/badge.svg" alt="Test Suite">
 </a>
+<a href="https://pypi.org/project/httpx-caching/">
+    <img src="https://badge.fury.io/py/httpx-caching.svg" alt="Package version">
+</a>
 </p>
 
 **Note**: Early development / alpha, use at your own risk.
