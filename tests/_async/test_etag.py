@@ -7,7 +7,7 @@ import pytest
 from freezegun import freeze_time
 from httpx import AsyncClient, Limits, Timeout
 
-from httpx_caching import AsyncCachingTransport, AsyncDictCache, AsyncRedisCache
+from httpx_caching import AsyncCachingTransport, AsyncDictCache
 from tests.conftest import cache_hit, raw_resp
 
 
@@ -20,7 +20,7 @@ async def async_client(mocker):
     async_client = AsyncClient()
     transport = AsyncCachingTransport(
         transport=async_client._transport,
-        cache=AsyncRedisCache(),
+        cache=AsyncDictCache(),
     )
     async_client._transport = transport
 
