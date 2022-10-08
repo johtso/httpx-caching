@@ -5,7 +5,7 @@
 import mock
 import pytest
 
-from httpx_caching import AsyncDictCache
+from httpx_caching import AsyncDictCache, AsyncRedisCache
 from tests.conftest import cache_hit
 
 
@@ -40,7 +40,7 @@ class TestClientActions(object):
 
     @pytest.mark.xfail
     async def test_close(self, url, async_client):
-        mock_cache = mock.Mock(spec=AsyncDictCache)
+        mock_cache = mock.Mock(spec=AsyncRedisCache)
         async_client._transport.cache = mock_cache
 
         # TODO: httpx does not close transport if nothing has been done with the client
