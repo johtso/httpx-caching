@@ -1,4 +1,5 @@
 from httpx_caching._async._cache import AsyncDictCache
+from httpx_caching._async._cache_redis import AsyncRedisCache
 from httpx_caching._async._transport import AsyncCachingTransport
 from httpx_caching._sync._cache import SyncDictCache
 from httpx_caching._sync._transport import SyncCachingTransport
@@ -15,6 +16,7 @@ __all__ = [
     "SyncCachingTransport",
     "CachingClient",
     "AsyncDictCache",
+    "AsyncRedisCache",
     "SyncDictCache",
     "ExpiresAfterHeuristic",
     "LastModifiedHeuristic",

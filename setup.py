@@ -58,6 +58,7 @@ setup(
         "msgpack",  
         "anyio",
         "multimethod",
+        "redis"
     ],
     extras_require={},
     classifiers=[
