@@ -28,7 +28,7 @@ class AsyncRedisCache:
 
     async def adelete(self, key: str) -> None:
         async with self.get_lock():
-            self.redis.delete(key)
+            await self.redis.delete(key)
 
     async def aclose(self):
         await self.redis.close()
