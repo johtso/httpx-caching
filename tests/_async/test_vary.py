@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from urllib.parse import urljoin
+from httpx import AsyncClient
 
 import pytest
 
-from httpx_caching import AsyncDictCache
+from httpx_caching import AsyncDictCache, CachingClient
 from tests.conftest import cache_hit, make_async_client
 
 
@@ -17,7 +18,8 @@ class TestVary(object):
 
     @pytest.fixture()
     async def async_client(self, cache):
-        async_client = make_async_client(cache=cache)
+        async_client = AsyncClient()
+        async_client = CachingClient(async_client, cache=cache)
         yield async_client
         await async_client.aclose()
 

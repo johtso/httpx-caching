@@ -54,10 +54,11 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        "httpx==0.22.*",
+        "httpx==0.23.*",
         "msgpack",  
         "anyio",
         "multimethod",
+        "redis"
     ],
     extras_require={},
     classifiers=[
