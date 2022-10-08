@@ -20,6 +20,7 @@ unasync_files(
             additional_replacements={
                 "AsyncBaseTransport": "BaseTransport",
                 "AsyncHTTPTransport": "HTTPTransport",
+                "AsyncRedisCache": "SyncRedisCache",
                 "async_client": "client",
                 "AsyncClient": "Client",
                 "make_async_client": "make_client",
