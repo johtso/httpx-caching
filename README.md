@@ -42,6 +42,11 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(run_example())
 ```
 
+Or with Redis as cache backend:
+
+```python
+client = CachingClient(client, cache=AsyncRedisCache())
+```
 
 **Documentation:**
 
