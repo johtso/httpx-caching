@@ -43,7 +43,6 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
         self,
         request: httpx.Request,
     ) -> httpx.Response:
-
         caching_protocol = CachingPolicy(
             request=request,
             cache_etags=self.cache_etags,
