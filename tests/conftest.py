@@ -67,7 +67,6 @@ class SimpleApp(object):
         return start_response("304 Not Modified", [])
 
     def etag(self, env, start_response):
-
         headers = [("Etag", self.etag_string)]
         print(f'if none match: {env.get("HTTP_IF_NONE_MATCH")}')
         print(f"etag_string: {self.etag_string}")
