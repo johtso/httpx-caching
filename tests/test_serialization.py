@@ -30,7 +30,7 @@ class TestSerializer(object):
         resp, _vary_fields = self.serializer._loads_v0(
             msgpack.dumps(self.response_data)
         )
-        assert resp.stream.read() == b"Hello World"
+        assert next(iter(resp.stream)) == b"Hello World"
 
     def test_dumps(self):
         assert self.serializer.dumps(
