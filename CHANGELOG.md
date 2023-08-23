@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 0.1a3 (23rd August, 2023)
+
+Bump httpx version to 0.23.
+
 ## 0.1a2 (18th February, 2022)
 
 Replace print statements with logging.
