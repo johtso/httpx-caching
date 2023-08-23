@@ -103,7 +103,7 @@ class SyncCachingTransport(httpx.BaseTransport):
             status_code=response.status_code,
             headers=response.headers,
             stream=response.stream,  # type: ignore
-            extensions=response.extensions,
+            extensions=response.extensions,  # type: ignore
         )
 
     @io_handler.register

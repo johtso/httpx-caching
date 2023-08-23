@@ -103,7 +103,7 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
             status_code=response.status_code,
             headers=response.headers,
             stream=response.stream,  # type: ignore
-            extensions=response.extensions,
+            extensions=response.extensions,  # type: ignore
         )
 
     @aio_handler.register
