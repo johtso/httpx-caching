@@ -54,7 +54,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        "httpx>=0.22.0,<0.24.0",
+        "httpx>=0.22.0",
         "msgpack",  
         "anyio",
         "multimethod",
