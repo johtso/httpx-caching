@@ -19,9 +19,9 @@ class AsyncCachingTransport(httpx.AsyncBaseTransport):
     def __init__(
         self,
         transport: httpx.AsyncBaseTransport,
-        cache: AsyncDictCache = None,
+        cache: Optional[AsyncDictCache] = None,
         cache_etags: bool = True,
-        heuristic: BaseHeuristic = None,
+        heuristic: Optional[BaseHeuristic] = None,
         cacheable_methods: Iterable[str] = ("GET",),
         cacheable_status_codes: Iterable[int] = (
             200,
