@@ -19,9 +19,9 @@ class SyncCachingTransport(httpx.BaseTransport):
     def __init__(
         self,
         transport: httpx.BaseTransport,
-        cache: SyncDictCache = None,
+        cache: Optional[SyncDictCache] = None,
         cache_etags: bool = True,
-        heuristic: BaseHeuristic = None,
+        heuristic: Optional[BaseHeuristic] = None,
         cacheable_methods: Iterable[str] = ("GET",),
         cacheable_status_codes: Iterable[int] = (
             200,
