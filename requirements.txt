@@ -1,6 +1,6 @@
 # Packaging
 twine==3.7.1
-wheel==0.37.0
+wheel==0.38.1
 
 # Testing
 autoflake==1.4
