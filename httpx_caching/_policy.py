@@ -222,8 +222,12 @@ def try_from_cache_policy(
     # determine freshness
     freshness_lifetime = 0
 
+    # Check the s-maxage pragma in the cache control header
+    if "s-maxage" in resp_cc:
+        freshness_lifetime = resp_cc["s-maxage"]
+        logger.debug("Freshness lifetime from s-maxage: %i", freshness_lifetime)
     # Check the max-age pragma in the cache control header
-    if "max-age" in resp_cc:
+    elif "max-age" in resp_cc:
         freshness_lifetime = resp_cc["max-age"]
         logger.debug("Freshness lifetime from max-age: %i", freshness_lifetime)
     # If there isn't a max-age, check for an expires header
@@ -427,8 +431,10 @@ def cache_response_action(
     # is no date header then we can't do anything about expiring
     # the cache.
     elif "date" in server_response.headers:
-        # cache when there is a max-age > 0
-        if "max-age" in cc and cc["max-age"] > 0:
+        # cache when there is a s-maxage or max-age > 0
+        if "s-maxage" in cc and cc["s-maxage"] > 0:
+            logger.debug("Caching b/c date exists and s-maxage > 0")
+        elif "max-age" in cc and cc["max-age"] > 0:
             logger.debug("Caching b/c date exists and max-age > 0")
 
         # If the request can expire, it means we should cache it
