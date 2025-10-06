@@ -1,5 +1,5 @@
 # Packaging
-twine==3.7.1
+twine==6.1.0
 wheel==0.37.0
 
 # Testing
