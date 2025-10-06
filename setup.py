@@ -37,7 +37,7 @@ def get_packages(package):
 
 setup(
     name="httpx-caching",
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     version=get_version("httpx_caching"),
     url="https://github.com/johtso/httpx-caching",
     project_urls={
@@ -68,10 +68,12 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Internet :: WWW/HTTP",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3 :: Only",
     ],
 )
